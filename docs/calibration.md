@@ -105,13 +105,13 @@ A second sensitivity-oriented test was performed using previously included studi
 The final test contained:
 
 ```text
-26 previously included studies
+13 previously included studies
 ```
 
 Final result:
 
 ```text
-Preserved: 26 / 26
+Preserved: 13 / 13
 Automatically excluded: 0
 Sensitivity: 100%
 ```
