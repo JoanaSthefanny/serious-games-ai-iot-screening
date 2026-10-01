@@ -225,4 +225,24 @@ A simples ausência de detalhes no resumo deve resultar em INCERTO quando o estu
 
 O texto completo será utilizado posteriormente para resolver esses casos.
 
+============================================================
+VALORES PERMITIDOS NO SCHEMA
+============================================================
+
+Para os campos serious_game, gamification_only, health, ai e
+secondary_or_incomplete, utilize exclusivamente:
+
+- YES
+- NO
+- UNCERTAIN
+
+Para o campo iot, utilize exclusivamente:
+
+- EXPLICIT_IOT
+- FUNCTIONALLY_COMPATIBLE
+- NO
+- UNCERTAIN
+
+Não utilize traduções, variações ou outros rótulos.
+
 Retorne somente a estrutura solicitada pelo schema.
