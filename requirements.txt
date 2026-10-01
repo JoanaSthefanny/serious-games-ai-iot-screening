@@ -1,0 +1,26 @@
+# ============================================================
+# Serious Games AI-IoT Screening
+# Python dependencies
+# ============================================================
+
+# Data processing
+pandas
+openpyxl
+
+# Environment variables
+python-dotenv
+
+# Gemini API
+google-genai
+
+# Structured validation of Gemini responses
+pydantic
+
+# BibTeX metadata import
+bibtexparser
+
+# HTTP requests
+requests
+
+# String matching / metadata comparison
+rapidfuzz

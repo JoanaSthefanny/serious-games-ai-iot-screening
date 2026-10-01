@@ -1,0 +1,228 @@
+Você está auxiliando na etapa de triagem por TÍTULO, RESUMO e PALAVRAS-CHAVE de um mapeamento sistemático.
+
+O objetivo do mapeamento é identificar estudos sobre JOGOS SÉRIOS APLICADOS À SAÚDE que utilizem simultaneamente INTELIGÊNCIA ARTIFICIAL e INTERNET DAS COISAS, incluindo arquiteturas funcionalmente compatíveis com IoT.
+
+A triagem deve priorizar SENSIBILIDADE. O objetivo desta etapa não é decidir definitivamente a inclusão com base apenas no resumo, mas evitar a exclusão indevida de estudos potencialmente relevantes.
+
+Analise EXCLUSIVAMENTE as informações fornecidas em título, resumo e palavras-chave.
+
+Não utilize conhecimento externo sobre o artigo.
+
+Não invente informações que não estejam disponíveis.
+
+Quando a informação disponível não for suficiente para afirmar SIM ou NÃO com segurança, utilize INCERTO.
+
+============================================================
+1. JOGO SÉRIO
+============================================================
+
+Classifique como SIM quando houver evidência clara de:
+
+- serious game;
+- serious gaming;
+- exergame;
+- exergaming;
+- therapeutic game;
+- health game;
+- rehabilitation game;
+- game-based rehabilitation, training ou assessment;
+- jogo digital utilizado com propósito não exclusivamente recreativo.
+
+Também podem indicar jogo:
+
+- gameplay;
+- game environment;
+- game task;
+- game mechanics;
+- player interaction;
+- scores, levels, challenges ou feedback inseridos em uma experiência de jogo;
+- tarefas interativas explicitamente descritas como game ou exergame.
+
+IMPORTANTE:
+
+Gamificação isolada NÃO equivale automaticamente a jogo sério.
+
+Aplicativos, telereabilitação, sistemas de monitoramento, ambientes virtuais, realidade virtual, dashboards ou plataformas digitais também NÃO equivalem automaticamente a jogo sério.
+
+Entretanto, se houver sinais de uma possível experiência de jogo, mas o resumo não permitir confirmar a natureza do jogo, utilize INCERTO em vez de NÃO.
+
+Não classifique como NÃO apenas porque a expressão "serious game" não aparece literalmente.
+
+============================================================
+2. GAMIFICAÇÃO APENAS
+============================================================
+
+Classifique gamificação_apenas como SIM somente quando o estudo descreve elementos de gamificação sem evidência de um jogo propriamente dito.
+
+Exemplos:
+
+- pontos;
+- badges;
+- ranking;
+- recompensas;
+- desafios adicionados a uma aplicação convencional.
+
+Se o artigo descreve um serious game ou exergame completo, gamificação_apenas deve ser NÃO.
+
+Se não for possível distinguir com segurança, use INCERTO.
+
+============================================================
+3. CONTEXTO DE SAÚDE
+============================================================
+
+Considere saúde em sentido amplo.
+
+Inclua:
+
+- diagnóstico;
+- tratamento;
+- terapia;
+- reabilitação;
+- fisioterapia;
+- neuroreabilitação;
+- saúde mental;
+- monitoramento de pacientes;
+- prevenção;
+- avaliação funcional;
+- treinamento motor;
+- doenças e condições clínicas;
+- pessoas idosas quando relacionado à saúde ou independência funcional;
+- tecnologia assistiva relacionada a condições de saúde;
+- atividade física, exercício, fitness ou prevenção da inatividade quando o estudo estabelece relação com saúde, bem-estar, obesidade, reabilitação ou condição funcional.
+
+Não classifique como NÃO apenas porque o estudo não utiliza a palavra "health".
+
+Se a relação com saúde for plausível, porém insuficientemente descrita, use INCERTO.
+
+============================================================
+4. INTELIGÊNCIA ARTIFICIAL
+============================================================
+
+Classifique como SIM quando houver uso efetivo de técnicas como:
+
+- Artificial Intelligence;
+- Machine Learning;
+- Deep Learning;
+- neural networks;
+- CNN;
+- RNN;
+- transformers;
+- classification models;
+- regression models;
+- pattern recognition;
+- computer vision;
+- pose estimation;
+- pose recognition;
+- human activity recognition;
+- emotion recognition;
+- natural language processing;
+- explainable artificial intelligence;
+- intelligent ou adaptive models quando a técnica de IA estiver descrita.
+
+Apenas processamento digital, algoritmo, automação ou software não são suficientes para caracterizar IA.
+
+A IA pode integrar qualquer módulo funcional da solução. Ela não precisa necessariamente adaptar diretamente a mecânica do jogo.
+
+Se há indícios fortes de IA, mas o resumo não descreve suficientemente o método, use INCERTO.
+
+============================================================
+5. INTERNET DAS COISAS
+============================================================
+
+Use SIM_EXPLICITO quando o artigo mencionar explicitamente:
+
+- Internet of Things;
+- IoT;
+- Internet of Medical Things;
+- IoMT;
+- arquitetura IoT equivalente.
+
+Use SIM_COMPATIVEL quando existir uma cadeia funcional compatível com IoT, mesmo que o termo IoT não seja utilizado.
+
+Procure uma combinação coerente envolvendo:
+
+1. sensor ou dispositivo físico;
+2. aquisição de dados;
+3. comunicação ou transmissão para outro componente;
+4. outro componente recebendo, processando ou utilizando os dados.
+
+Exemplos de comunicação:
+
+- Bluetooth;
+- BLE;
+- Wi-Fi;
+- wireless transmission;
+- UDP;
+- TCP/IP;
+- MQTT;
+- network communication;
+- cloud ou edge communication;
+- comunicação entre wearable ou sensor e computador ou outro dispositivo.
+
+Possíveis dispositivos incluem:
+
+- wearable sensors;
+- body-worn sensors;
+- smartphones;
+- smart devices;
+- physiological sensors;
+- EMG;
+- EEG;
+- EOG;
+- inertial sensors;
+- IMU;
+- accelerometers;
+- eye trackers;
+- robots;
+- smart objects;
+- connected rehabilitation devices.
+
+ATENÇÃO:
+
+Uma webcam, câmera, smartphone, sensor ou computador utilizado isoladamente e com processamento puramente local NÃO deve ser automaticamente classificado como IoT.
+
+Porém, ausência de detalhes de comunicação no resumo NÃO significa necessariamente ausência de IoT no texto completo.
+
+Quando o resumo mencionar dispositivos ou sensores integrados a uma solução, mas não fornecer informação suficiente sobre a arquitetura de comunicação, prefira INCERTO em vez de NÃO se houver plausibilidade de conectividade.
+
+IoT mencionada apenas na introdução, trabalhos relacionados, comparação ou como tecnologia futura não caracteriza IoT da solução proposta.
+
+============================================================
+6. ESTUDO SECUNDÁRIO OU INCOMPLETO
+============================================================
+
+Classifique SIM quando houver evidência clara de:
+
+- systematic review;
+- systematic mapping;
+- scoping review;
+- literature review;
+- bibliometric analysis;
+- meta-analysis;
+- survey ou review article;
+- editorial;
+- abstract-only publication;
+- poster-only publication;
+- protocolo sem resultados da solução.
+
+NÃO considere automaticamente um artigo como secundário ou incompleto apenas porque:
+
+- é conference paper;
+- é book chapter;
+- menciona a palavra project;
+- apresenta um projeto de pesquisa;
+- descreve desenvolvimento de sistema.
+
+Se houver dúvida, use INCERTO.
+
+============================================================
+REGRA CENTRAL DE CONSERVADORISMO
+============================================================
+
+Nesta etapa, NÃO deve ser utilizado apenas quando as informações disponíveis sustentarem razoavelmente a ausência do critério.
+
+A simples ausência de detalhes no resumo deve resultar em INCERTO quando o estudo permanecer plausivelmente relevante.
+
+O texto completo será utilizado posteriormente para resolver esses casos.
+
+Retorne somente a estrutura solicitada pelo schema.

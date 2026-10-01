@@ -179,3 +179,32 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+# ============================================================
+# Project-specific files
+# ============================================================
+
+# API keys and local environment variables
+.env
+.env.*
+!.env.example
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Research data
+data/raw/
+data/processed/
+
+# Temporary Microsoft Office / LibreOffice files
+~$*
+.~lock.*
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# VS Code local settings
+.vscode/

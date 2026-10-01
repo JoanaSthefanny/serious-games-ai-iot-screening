@@ -1,2 +1,38 @@
-# Auto detect text files and perform LF normalization
+# ============================================================
+# Default text handling
+# ============================================================
+
 * text=auto
+
+
+# ============================================================
+# Source code and text files
+# ============================================================
+
+*.py text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.csv text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.ini text eol=lf
+*.cfg text eol=lf
+
+.env.example text eol=lf
+
+
+# ============================================================
+# Binary files
+# ============================================================
+
+*.xlsx binary
+*.xls binary
+*.pdf binary
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary

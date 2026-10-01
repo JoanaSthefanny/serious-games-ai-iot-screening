@@ -1,0 +1,42 @@
+cff-version: 1.2.0
+message: "If you use this software in your research, please cite this repository."
+
+title: "Serious Games AI-IoT Screening"
+
+type: software
+
+authors:
+  - family-names: "Gomes Costa dos Santos"
+    given-names: "Joana Sthefanny"
+
+version: "1.0.0"
+
+date-released: "2026-09-30"
+
+repository-code: "https://github.com/JoanaSthefanny/serious-games-ai-iot-screening"
+
+url: "https://github.com/JoanaSthefanny/serious-games-ai-iot-screening"
+
+license: "MIT"
+
+abstract: >
+  Semi-automated screening pipeline developed to support systematic
+  mapping studies involving serious games, artificial intelligence,
+  Internet of Things technologies, and health applications. The
+  pipeline includes database-specific metadata import, metadata
+  standardization, duplicate detection, master dataset management,
+  LLM-assisted evidence classification, deterministic screening rules,
+  safety-rescue mechanisms, checkpoint-based execution, and routing
+  of uncertain records for human review.
+
+keywords:
+  - "systematic mapping"
+  - "systematic review"
+  - "serious games"
+  - "artificial intelligence"
+  - "Internet of Things"
+  - "IoT"
+  - "health"
+  - "screening"
+  - "large language models"
+  - "research software"
