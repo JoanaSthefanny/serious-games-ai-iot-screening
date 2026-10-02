@@ -58,33 +58,20 @@ Each importer converts the original database metadata into a common schema befor
 
 ## Pipeline Architecture
 
-The overall workflow is:
+The overall workflow includes:
 
-```text
-Database search
-      ↓
-Database export
-      ↓
-Database-specific importer
-      ↓
-Metadata standardization
-      ↓
-Internal deduplication
-      ↓
-Master dataset
-      ↓
-Cross-database deduplication
-      ↓
-LLM-assisted evidence classification
-      ↓
-Deterministic screening rules
-      ↓
-Safety-rescue mechanisms
-      ↓
-RETAIN / UNCERTAIN / EXCLUDE
-      ↓
-Human review
-```
+1. database search and export;
+2. database-specific import;
+3. metadata standardization;
+4. internal deduplication;
+5. Springer metadata enrichment, when applicable;
+6. master-dataset creation or update with cross-database deduplication;
+7. LLM-assisted evidence classification;
+8. deterministic screening rules, including safety-rescue mechanisms;
+9. assignment of `RETAIN`, `UNCERTAIN`, or `EXCLUDE`;
+10. human review.
+
+In the complete Springer workflow, enrichment occurs before the master dataset is updated.
 
 ---
 
@@ -178,14 +165,15 @@ Deduplication occurs at two levels.
 Records within the imported collection for a database are compared using:
 
 1. normalized DOI;
-2. a unique normalized-title candidate with compatible volume information when no DOI match is found.
+2. a unique compatible normalized-title candidate when no DOI match is found.
 
-Conflicting nonempty volume identifiers prevent title-based merging. Multiple compatible title candidates are treated as ambiguous and preserved separately.
+Title-based matching requires matching normalized titles and no conflict between available DOI or volume identifiers.
+
+Different nonempty normalized DOIs or volume identifiers prevent title-based merging. Multiple compatible title candidates are treated as ambiguous and preserved separately.
 
 The first retained record preserves its identity and populated bibliographic fields. Missing fields can be filled from a duplicate record.
 
 A DOI recovered during this process is indexed for subsequent duplicate checks.
-
 
 ### Master-dataset deduplication
 
@@ -194,11 +182,17 @@ Incoming records are compared against the existing master dataset and records ad
 The matching priority is:
 
 1. normalized DOI;
-2. a unique normalized-title candidate with compatible volume information when no DOI match is found.
+2. a unique compatible normalized-title candidate when no DOI match is found.
+
+As in internal deduplication, conflicting nonempty normalized DOIs or volume identifiers prevent title-based merging. Ambiguous title matches remain separate records.
 
 The existing record preserves its MASTER ID, source ID, original database, and populated bibliographic values. Missing bibliographic metadata can be filled from an incoming duplicate.
 
-Duplicate records are documented in separate reports rather than silently discarded.
+The master-creation module reuses `update_database()` from the master-update module. Both paths therefore apply the same matching and metadata-recovery rules.
+
+Duplicate records are documented in separate reports rather than silently discarded. The reports identify the matched record and the bibliographic fields filled from the duplicate.
+
+When master creation finds no duplicates, it writes an empty duplicate report with column headers. When a master update finds no duplicates, it removes any previous master duplicate report. This prevents a previous run's report from remaining active.
 
 ---
 
@@ -221,6 +215,7 @@ This allows screening results and manual decisions to remain traceable even when
 
 A timestamped backup is created before updating an existing master workbook.
 
+Master creation starts from an empty dataset and assigns identifiers to the resulting records. Updating an existing master is the appropriate operation when existing identifiers must be preserved.
 
 ---
 
@@ -348,17 +343,13 @@ Both categories are preserved for subsequent assessment.
 
 Additional deterministic safety rules were introduced during classifier development to reduce false-negative screening decisions.
 
-These mechanisms can override an aggressive automatic exclusion and route the record to:
+These mechanisms can override an automatic exclusion and route the record to:
 
 ```text
 UNCERTAIN
 ```
 
-instead.
-
-The current classifier implements exactly four rescues, evaluated in this order:
-
-It does not confirm eligibility or automatically include the study.
+They do not confirm eligibility or automatically include the study.
 
 The current classifier implements four rescues, evaluated in this order:
 
@@ -543,7 +534,7 @@ Changes to the prompt or decision rules should be accompanied by updated version
 
 Historical research results were produced by the original research scripts.
 
-Their counts and recorded configuration identifiers are preserved. They do not represent a complete rerun with the current public implementation:
+Their counts and recorded configuration identifiers are preserved. They do not represent a complete rerun with the current public implementation, whose configuration is:
 
 ```text
 Prompt version: 1.9

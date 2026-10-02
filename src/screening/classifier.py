@@ -1493,7 +1493,7 @@ def analyze_article(
 
 
 # ============================================================
-# DETERMINISTIC CLASSIFIER V1.10
+# DETERMINISTIC CLASSIFIER V1.11
 # ============================================================
 
 CALIBRATED_ACQUISITION_TERMS = [

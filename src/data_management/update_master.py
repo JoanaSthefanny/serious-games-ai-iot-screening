@@ -409,12 +409,13 @@ def main(database=None):
     """
     Updates master_records.xlsx for one database or all databases.
 
-    Returns the updated DataFrame only after the master and any
-    duplicate report have been saved successfully.
+    Returns the updated DataFrame only after the master has been saved
+    and the duplicate report has been saved or removed successfully.
 
     Returns None on cancellation.
 
-    Read, backup and write failures propagate to the caller.
+    Read, backup, write and report-removal failures propagate
+    to the caller.
     """
 
     print("=" * 70)
@@ -473,6 +474,9 @@ def main(database=None):
             DUPLICATES_REPORT,
             index=False,
         )
+    else:
+        # Remove a previous run's report when this update has no duplicates.
+        DUPLICATES_REPORT.unlink(missing_ok=True)
 
     print("\n" + "=" * 70)
     print("MASTER DATASET UPDATED")
@@ -492,7 +496,7 @@ def main(database=None):
         print("\nDuplicate report:")
         print(DUPLICATES_REPORT)
 
-    # Return only after all required writes have succeeded.
+    # Return only after saving and report cleanup have succeeded.
     return master
 
 
