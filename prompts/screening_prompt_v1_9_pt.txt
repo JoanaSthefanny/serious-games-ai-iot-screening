@@ -447,8 +447,56 @@ Use quando existir indício concreto ligado à solução de:
 - predição;
 - reconhecimento;
 - adaptação;
+- avaliação computacional de desempenho ou progresso terapêutico
+  a partir dos dados adquiridos pelo sistema;
 
 mas a abordagem não estiver suficientemente caracterizada.
+
+No caso de avaliação computacional, devem existir os dois elementos:
+
+1. dados adquiridos de sensores, dispositivos ou da interação do usuário;
+2. uso desses dados pela própria solução para produzir uma avaliação
+   do desempenho, estado funcional ou progresso terapêutico.
+
+Quando o abstract apresentar essa função analítica, mas não informar
+se utiliza modelos de IA ou processamento convencional, classifique
+ai = UNCERTAIN e explique qual método precisa ser verificado no
+texto completo.
+
+Isso NÃO confirma IA e NÃO autoriza ai = YES.
+
+A simples presença de sensores, robôs, monitoramento, armazenamento,
+transmissão de dados, visualização de indicadores ou cálculo de pontos
+NÃO é suficiente para esse indício. Deve haver uma função de avaliação
+ligada à própria solução, com abordagem não especificada.
+
+Se o texto esclarecer que essa avaliação utiliza exclusivamente
+limiares fixos, regras predeterminadas ou cálculos convencionais,
+sem outro componente de IA na solução, mantenha ai = NO.
+
+Não justifique ai = NO somente com "não menciona IA" quando houver
+a função analítica descrita acima e o método estiver omitido.
+Na evidência, diferencie o que o texto demonstra do que permanece
+desconhecido. Não atribua uma técnica de IA que não esteja descrita.
+
+LEITURA CONJUNTA DO TÍTULO E DO ABSTRACT:
+
+O título também é evidência; não avalie IA apenas procurando nomes de
+algoritmos no abstract. Quando o título indicar Computer Vision e o abstract
+descrever reconhecimento de gestos efetivamente usado para controlar o jogo,
+a função de reconhecimento pertence à solução, mesmo sem nomear o modelo.
+Se o método de reconhecimento não estiver explicado, use ai = UNCERTAIN.
+Não conclua ai = NO apenas porque há EMG, giroscópio, Arduino, IDE ou LCD:
+esses componentes não caracterizam, por si, o método de reconhecimento.
+Um ambiente de programação como VS Code ou PyCharm não é uma técnica de IA.
+
+Diferencie funções da mesma solução: cálculos convencionais dos sinais EMG
+não demonstram que o reconhecimento visual de gestos também é convencional.
+Só atribua NO por processamento convencional se os metadados caracterizarem
+a função relevante dessa forma, sem outra função de IA plausível omitida.
+Reconhecimento de gestos por limiares ou regras fixas explicitamente descritos,
+sem outro indício de IA na solução, continua sendo ai = NO. Um título isolado
+sobre Computer Vision, sem apoio na solução descrita, não autoriza YES.
 
 ============================================================
 5. INTERNET DAS COISAS
@@ -613,6 +661,21 @@ principal ou método do trabalho é:
 
 "overview" isoladamente NÃO demonstra revisão.
 
+Não confunda "overview of our/the [named] system" com revisão da literatura.
+Um artigo pode apresentar uma visão geral da arquitetura ou plataforma que
+os autores propõem, mesmo sem resumir experimentos no abstract. Ausência de
+participantes, métricas ou validação no abstract não prova estudo secundário,
+publicação incompleta ou ausência de contribuição original.
+
+YES exige evidência positiva de síntese/revisão de estudos anteriores, protocolo
+sem estudo, resumo/poster/editorial ou publicação explicitamente incompleta.
+Quando o texto apresenta o próprio sistema, seus componentes e sua integração,
+sem indicar método de revisão, não use YES por causa de "overview". Use NO se
+a contribuição original estiver clara; UNCERTAIN se sua natureza permanecer
+ambígua. Não suponha que testes ou protótipos ausentes do abstract não existam.
+Uma revisão de sistemas de terceiros continua YES, mesmo que diga "we present".
+
+
 Se houver contribuição original clara, como:
 
 - we developed;
@@ -662,3 +725,18 @@ Não use YES apenas para evitar falsos negativos.
 
 Não use NO apenas porque o abstract omitiu um detalhe
 técnico.
+
+============================================================
+CONFERÊNCIA FINAL ANTES DE RETORNAR O SCHEMA
+============================================================
+
+Sem acrescentar campos nem texto fora do schema:
+1. Se secondary_or_incomplete = YES, confira se evidence_study_type aponta
+   evidência positiva de revisão/protocolo/publicação incompleta. A palavra
+   overview ou a ausência de experimento no abstract não bastam.
+2. Se ai = NO, confira se considerou título, abstract e keywords juntos.
+   Reconhecimento visual/gestual da própria solução com método não informado
+   exige UNCERTAIN quando há os indícios descritos na seção de IA.
+3. Não confunda método não descrito com método convencional comprovado.
+   Evidências devem explicar a incerteza sem inventar algoritmos.
+4. Não utilize conhecimento de textos completos ou de artigos específicos.

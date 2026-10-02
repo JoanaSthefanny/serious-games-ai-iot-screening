@@ -2,9 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
-This repository contains the public and reproducible implementation of the semi-automated screening pipeline developed for a systematic mapping study involving serious games, artificial intelligence, Internet of Things technologies, and health applications.
+This repository provides the public implementation of the semi-automated screening pipeline developed for a systematic mapping study involving serious games, artificial intelligence, Internet of Things technologies, and health applications.
 
-The project follows a simplified versioning approach for the public research software.
+Public software releases are versioned separately from the screening prompt and classifier.
+
+Historical research results retain their recorded configuration identifiers. Software updates do not retroactively change those results.
 
 ---
 
@@ -12,22 +14,37 @@ The project follows a simplified versioning approach for the public research sof
 
 ### Fixed
 
-- Recover Compendex BibTeX v2 entries rejected only for repeated copyright fields; abort its import on other rejected blocks.
-- Import Compendex index terms from key and note.
+- Recover Compendex BibTeX v2 entries rejected only for repeated copyright fields; stop the import on other rejected blocks.
+- Recover Compendex index terms from `key` and `note`.
 - Preserve volume metadata and avoid title-only merging when volume identifiers conflict or the match is ambiguous.
-
-- Preserve existing outputs when an import produces no records.
-- Preserve empty-table columns and recover missing bibliographic metadata from internal duplicates.
+- Preserve existing processed outputs when an import produces no records.
+- Preserve empty-table columns during internal deduplication.
+- Recover missing bibliographic metadata from internal duplicates.
 - Return imported records from all six importers and stop the complete workflow after a failed or empty import.
 - Stop on checkpoint write failures without converting successful classifications into API errors.
-- Align current documentation with prompt v1.7, classifier v1.10 and the three implemented rescue rules; distinguish historical results.
 - Declare `xlrd` for supported legacy `.xls` imports.
-- Add eight offline regression tests covering import safety, workflow gating, checkpoint failures and decision precedence.
+- Correct documentation inconsistencies concerning screening rules, configuration identifiers, and historical results.
+
+### Changed
+
+- Update the screening prompt to v1.9.
+- Clarify AI uncertainty when a computational assessment function is described but its analytical method is omitted.
+- Clarify joint interpretation of title and abstract for computer vision and gesture-recognition systems.
+- Require supporting evidence before classifying a publication as secondary or incomplete; an overview of the authors' own system or omitted abstract details is insufficient.
+- Update the classifier to v1.11.
+- Add `RESGATE_AAL_METADADOS_INCOMPLETOS`, which routes qualifying assistive-health cases to `UNCERTAIN` without changing their original criterion labels.
+- Align the README and methodological documentation with the current prompt, classifier, and four implemented safety-rescue rules.
+- Distinguish the current implementation from the original research execution.
+- Clarify that the historical 15-study positive test includes the same 11 relevant IEEE studies plus two PubMed and two ACM studies.
+
+### Added
+
+- Eight offline regression tests covering import safety, workflow gating, checkpoint failures, and decision precedence.
 
 ### Planned
 
-- Additional validation with independent datasets.
-- Expanded example datasets.
+- Additional evaluation using independent datasets.
+- Expanded synthetic example datasets.
 - Improvements to database export documentation.
 - Additional automated tests.
 - Support for future metadata formats when required.
@@ -36,52 +53,36 @@ The project follows a simplified versioning approach for the public research sof
 
 ## [1.0.0] - 2026-09-30
 
-Historical results were produced by the original research scripts. Their recorded version identifiers are preserved. The current public implementation uses prompt v1.7 and classifier v1.10; the historical results do not constitute a new Gemini execution with this configuration.
+Initial public release of the research screening pipeline.
+
+The research results documented below were produced by the original research scripts. Their counts and recorded configuration identifiers are preserved.
+
+They do not represent a complete rerun with the prompt and classifier described under `Unreleased`.
 
 ### Added
 
-- Initial public release of the research screening pipeline.
 - Unified command-line interface through `src/main.py`.
-- Database-specific metadata importers for:
-  - IEEE Xplore;
-  - PubMed;
-  - ACM Digital Library;
-  - Scopus;
-  - Engineering Village / Compendex;
-  - Springer Link.
+- Database-specific metadata importers for IEEE Xplore, PubMed, ACM Digital Library, Scopus, Engineering Village / Compendex, and Springer Link.
 - Support for BibTeX, NBIB, CSV, and Excel metadata exports where applicable.
 - Canonical metadata schema shared across databases.
-- Automatic DOI normalization.
-- DOI recovery from URLs and other metadata fields.
+- Automatic DOI normalization and DOI recovery from URLs and other metadata fields.
 - Consolidation of multiple keyword fields.
-- Internal duplicate detection using:
-  1. normalized DOI;
-  2. normalized title.
+- Internal duplicate detection based on normalized DOI and normalized title.
 - Cross-database duplicate detection.
 - Persistent `MASTER-XXXX` identifiers.
-- Master dataset creation and incremental updating.
+- Master-dataset creation and incremental updating.
 - Springer Nature metadata and abstract enrichment support.
 - Environment-variable configuration through `.env`.
 - Public `.env.example` template.
 - Gemini-assisted structured evidence classification.
-- Deterministic screening layer separated from LLM interpretation.
-- Three screening outcomes:
-  - `RETAIN`;
-  - `UNCERTAIN`;
-  - `EXCLUDE`.
+- Deterministic screening logic separated from LLM interpretation.
+- Three screening outcomes: `RETAIN`, `UNCERTAIN`, and `EXCLUDE`.
 - Conservative handling of missing abstracts.
-- Checkpoint-based screening execution.
-- Automatic recovery after interrupted screening runs.
+- Checkpoint-based execution and resumption after interruptions.
 - Protection against interpreting API failures as eligibility exclusions.
-- Safety-rescue mechanisms for potentially ambiguous screening cases.
+- Safety-rescue mechanisms for ambiguous screening cases.
 - Separate screening workbooks for each database.
-- Audit sheets for:
-  - retained records;
-  - uncertain records;
-  - excluded records;
-  - safety rescues;
-  - records without abstracts;
-  - API errors.
+- Audit sheets for retained, uncertain, excluded, rescued, missing-abstract, and API-error records.
 - Methodological documentation.
 - Screening decision-rule documentation.
 - Calibration documentation.
@@ -91,9 +92,9 @@ Historical results were produced by the original research scripts. Their recorde
 - MIT License.
 - Citation metadata through `CITATION.cff`.
 
-### Screening configuration
+### Recorded Historical Research Configuration
 
-The first public release documents the following screening configuration:
+The version identifiers recorded for the original research execution are:
 
 ```text
 Gemini model:       gemini-3.5-flash-lite
@@ -101,46 +102,60 @@ Prompt version:     1.6
 Classifier version: 1.8
 ```
 
-### Development and calibration
+These identifiers describe the historical execution records, not the current implementation.
 
-The final classifier configuration was developed using manually assessed records and a sensitivity-oriented calibration process.
+### Historical Development and Calibration
 
-The documented calibration included:
+The original research classifier was developed using manually assessed records and a sensitivity-oriented calibration process.
+
+The documented IEEE calibration included:
 
 ```text
-IEEE calibration:
-Relevant records preserved: 11/11
-False negatives: 0
+Relevant records preserved: 11 / 11
+Automatically excluded relevant records: 0
 
 Manually non-relevant records:
-EXCLUDE:   19/22
-UNCERTAIN:  3/22
-RETAIN:     0/22
+EXCLUDE:   19 / 22
+UNCERTAIN:  3 / 22
+RETAIN:     0 / 22
 ```
 
-A broader positive sensitivity test included 15 previously included studies from multiple databases:
+A multi-database positive test included:
 
 ```text
-Preserved: 15/15
+IEEE Xplore:        11 studies
+PubMed:              2 studies
+ACM Digital Library: 2 studies
+Total:              15 studies
+
+Preserved: 15 / 15
 Automatically excluded: 0
 ```
 
-These records contributed to classifier development and therefore these results should not be interpreted as independent external validation.
+The 11 IEEE studies in this test were the same relevant studies used in the IEEE calibration subset. The two sets must not be counted as independent samples.
 
-### Documented screening run
+A study was considered preserved when its screening outcome was either `RETAIN` or `UNCERTAIN`.
 
-The screening workflow documented for the associated systematic mapping study processed:
+These records contributed to classifier development. The results describe calibration performance and do not constitute independent external validation.
+
+### Historical Screening Run
+
+The original research execution processed:
 
 ```text
 Total records: 1,046
 
-RETAIN:      37
-UNCERTAIN:  141
-EXCLUDE:    868
+RETAIN:     37
+UNCERTAIN: 141
+EXCLUDE:   868
 
 Safety rescues: 40
 Records without abstracts: 74
 Remaining technical errors: 0
 ```
 
-The automated screening outcomes do not represent final full-text inclusion decisions.
+Records without abstracts were included in `UNCERTAIN`.
+
+These counts belong to the historical execution and remain unchanged by subsequent software updates.
+
+The automated outcomes do not represent final full-text inclusion decisions.

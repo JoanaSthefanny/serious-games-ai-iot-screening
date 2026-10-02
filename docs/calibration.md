@@ -8,6 +8,8 @@ The objective of calibration was to reduce false-negative screening decisions wh
 
 The calibration data were used during classifier development and therefore must **not** be interpreted as an independent external validation set.
 
+The calibration and screening figures reported below belong to the original research execution. The current repository provides an organized and updated implementation; these historical figures are not presented as results of a new execution with the current configuration.
+
 ---
 
 ## Development Strategy
@@ -157,23 +159,29 @@ Independent external validation would require a separate dataset that was not us
 
 ---
 
-## Recorded Historical Configuration
+## Current Implementation Configuration
 
-The version identifiers recorded for the historical research execution are:
+The current implementation uses:
 
 ```text
 Gemini model: gemini-3.5-flash-lite
-Prompt version: 1.6
-Classifier version: 1.8
+Prompt version: 1.9
+Classifier version: 1.11
 ```
+
+These identifiers describe the current software. The historical calibration and screening results below retain the configuration identifiers recorded in their original execution files.
 
 ---
 
-Historical results were produced by the original research scripts. Their recorded version identifiers are preserved. The current public implementation uses prompt v1.7 and classifier v1.10; the historical results do not constitute a new Gemini execution with this configuration.
+## Historical Full Screening Run
 
-## Full Screening Run
+Following the original calibration process, the research scripts
+were executed across the six database collections incorporated
+into the master dataset.
 
-After calibration, the final screening pipeline was executed across the six database collections incorporated into the master dataset.
+The figures below describe that historical execution. They do not
+represent a complete rerun with the current prompt v1.9 and
+classifier v1.11.
 
 The combined dataset contained:
 
@@ -181,7 +189,7 @@ The combined dataset contained:
 1,046 records
 ```
 
-Final automated screening distribution:
+Reported historical screening distribution:
 
 ```text
 RETAIN:     37
@@ -196,14 +204,14 @@ Automatically excluded: 868 / 1,046 = 82.98%
 Preserved for further assessment: 178 / 1,046 = 17.02%
 ```
 
-The preserved group consists of:
+The preserved group consisted of:
 
 ```text
 37 RETAIN
 141 UNCERTAIN
 ```
 
-Additional execution information:
+Additional historical execution information:
 
 ```text
 Records without abstracts: 74
@@ -211,7 +219,11 @@ Safety rescues: 40
 Technical errors remaining after completion: 0
 ```
 
-Records without abstracts were included within the `UNCERTAIN` category rather than automatically excluded.
+Records without abstracts were included in the `UNCERTAIN`
+category rather than automatically excluded.
+
+These automated outcomes do not represent final full-text
+inclusion decisions.
 
 ---
 

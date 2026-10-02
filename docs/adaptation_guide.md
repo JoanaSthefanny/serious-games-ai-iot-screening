@@ -39,8 +39,8 @@ The screening component contains rules that are specific to the original study.
 Researchers applying the pipeline to another review should examine at least the following components:
 
 ```text
-prompts/screening_prompt_v1_7_pt.txt
-prompts/screening_prompt_v1_7_en.md
+prompts/screening_prompt_v1_9_pt.txt
+prompts/screening_prompt_v1_9_en.md
 
 src/screening/classifier.py
 src/screening/interactive_screening.py
@@ -104,15 +104,18 @@ The review protocol should define the criteria first, and the software should th
 
 # 4. Adapt the Screening Prompt
 
-The original production prompt is stored in:
+The current operational prompt is stored in:
 
 ```text
-prompts/screening_prompt_v1_7_pt.txt
+prompts/screening_prompt_v1_9_pt.txt
 ```
 
-This prompt was specifically designed for the original systematic mapping study.
+This prompt was designed for the original systematic mapping study
+on serious games, health, artificial intelligence, and Internet
+of Things technologies.
 
-A researcher adapting the pipeline should create a new prompt version instead of silently overwriting the existing one.
+For another review, create a new prompt version instead of silently
+overwriting the existing one.
 
 For example:
 
@@ -132,15 +135,45 @@ The new prompt should describe:
 - inclusion criteria;
 - exclusion criteria;
 - the evidence dimensions to classify;
+- allowed classification values;
 - definitions of ambiguous concepts;
-- how uncertainty should be handled;
+- how uncertainty and missing information should be handled;
 - the expected structured output.
 
-The prompt should instruct the model to classify evidence rather than independently make the final inclusion decision whenever the deterministic architecture is preserved.
+The prompt should distinguish evidence about the study's own
+solution from related work, future plans, and isolated terminology.
+
+When preserving the deterministic architecture, instruct the model
+to classify evidence rather than independently assign the final
+screening outcome.
 
 A useful general principle is:
 
 > The LLM should identify and structure evidence, while transparent programmatic rules determine the automated screening outcome.
+
+## Prompt Loading and Consistency
+
+When adapting the prompt, review these components in
+`src/screening/classifier.py`:
+
+```text
+PROMPT_FILE
+PROMPT_VERSION
+DEFAULT_PROMPT
+load_screening_prompt()
+```
+
+Update `PROMPT_FILE` to point to the new prompt and assign the corresponding `PROMPT_VERSION`.
+
+The loader uses the external prompt when the file exists and contains text. Otherwise, it uses the embedded `DEFAULT_PROMPT`.
+
+Keep the external prompt and embedded fallback consistent to avoid running outdated instructions when the external file is unavailable or empty.
+
+The prompt's field names and allowed values must also match the structured response schema and deterministic decision rules.
+
+An English translation provided for documentation does not change the operational prompt unless the code is explicitly configured to load it.
+
+Changing the prompt does not retroactively change historical results. Preserve the original outputs and their recorded configuration identifiers.
 
 ---
 
@@ -327,21 +360,12 @@ The actual logic must follow the protocol of the new systematic review.
 
 The original classifier contains safety-rescue mechanisms intended to reduce false-negative exclusions.
 
-The current classifier implements exactly three rescues, evaluated in this order:
+Examples include situations where:
 
-| Code | Required conditions |
-|---|---|
-| `RESGATE_IOT_3_DE_4` | Serious game, health and AI are `YES`; IoT is `NO`; an acquisition or monitoring signal is present. |
-| `RESGATE_MULTIMODAL` | Health and AI are `YES`; serious game or IoT is `NO`; both interaction and acquisition signals are present. |
-| `RESGATE_AAL_ESTIMULACAO` | Serious game is `NO`; health is `YES`; IoT is `EXPLICIT_IOT` or `FUNCTIONALLY_COMPATIBLE`; AI is `YES` or `UNCERTAIN`; both stimulation and assistive-platform signals are present. |
-
-Signals are lexical matches in title, abstract and keywords against the `CALIBRATED_*_TERMS` lists in `src/screening/classifier.py`.
-
-Decision order: contradictory game/gamification labels → secondary or incomplete study → gamification only → the three rescues above → negative core criteria → uncertain labels → retention.
-
-When `serious_game = YES` and `gamification_only = YES`, the result is `UNCERTAIN` with an empty rescue code. This contradiction is checked before study type.
-
-An uncertain label does not prevent exclusion by another negative core criterion when no rescue applies. There is no generic three-of-four rescue and no independent game, health or AI terminology rescue.
+- lexical evidence contradicts an LLM `NO`;
+- three of four core dimensions are strongly supported;
+- an architecture appears relevant but is incompletely described;
+- a complex system may contain components not visible in the abstract.
 
 These rules are specific to the original screening problem.
 

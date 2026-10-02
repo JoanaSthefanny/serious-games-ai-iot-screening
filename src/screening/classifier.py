@@ -36,9 +36,9 @@ from pydantic import BaseModel, Field
 
 MODEL_NAME = "gemini-3.5-flash-lite"
 
-PROMPT_VERSION = "1.7"
+PROMPT_VERSION = "1.9"
 
-CLASSIFIER_VERSION = "1.10"
+CLASSIFIER_VERSION = "1.11"
 
 MAX_ATTEMPTS = 3
 
@@ -54,7 +54,7 @@ PROJECT_ROOT = SRC_DIR.parent
 PROMPT_FILE = (
     PROJECT_ROOT
     / "prompts"
-    / "screening_prompt_v1_7_pt.txt"
+    / "screening_prompt_v1_9_pt.txt"
 )
 
 
@@ -123,14 +123,28 @@ class ScreeningAssessment(BaseModel):
         "UNCERTAIN",
     ] = Field(
         description=(
-            "Whether an artificial intelligence technique is "
-            "actually used in the proposed system or study."
+            "Classifique a IA da própria solução. YES exige evidência "
+            "positiva de uma técnica de IA utilizada. UNCERTAIN aplica-se "
+            "a indícios de aprendizado, classificação, predição, reconhecimento, "
+            "adaptação ou avaliação computacional de desempenho/progresso "
+            "terapêutico a partir dos dados adquiridos, quando o método não "
+            "é especificado. Sensores ou monitoramento isolados não bastam. "
+            "Considere título e abstract juntos: Computer Vision e reconhecimento "
+            "gestual utilizado, com método omitido, sustentam UNCERTAIN. "
+            "IDE, EMG ou Arduino não caracterizam o método de reconhecimento. "
+            "Uma função analítica com método omitido não deve receber NO "
+            "apenas pela ausência da palavra IA. Regras fixas ou cálculos "
+            "convencionais explicitamente descritos, sem outro componente "
+            "de IA na solução, sustentam NO."
         )
     )
 
     evidence_ai: str = Field(
         description=(
-            "Evidence supporting the AI classification."
+            "Explique a evidência de IA ligada à própria solução. Para "
+            "UNCERTAIN, identifique a função descrita e o método omitido. "
+            "Não invente técnicas. A ausência de menção a IA, sozinha, "
+            "não demonstra ausência quando há função analítica ambígua."
         )
     )
 
@@ -157,15 +171,19 @@ class ScreeningAssessment(BaseModel):
         "UNCERTAIN",
     ] = Field(
         description=(
-            "Whether the record is a secondary study, review, "
-            "bibliometric study, protocol-only publication, abstract, "
-            "poster or otherwise incomplete publication."
+            "YES exige evidência positiva de revisão de estudos anteriores, "
+            "protocolo sem estudo, resumo/poster/editorial ou publicação "
+            "explicitamente incompleta. Overview do próprio sistema não "
+            "demonstra revisão. Ausência de experimento no abstract não "
+            "basta para YES. Contribuição original clara: NO; natureza "
+            "ambígua: UNCERTAIN. We present em uma revisão não basta para NO."
         )
     )
 
     evidence_study_type: str = Field(
         description=(
-            "Evidence supporting the study-type classification."
+            "Explique a evidência positiva para o tipo de estudo. Não justifique "
+            "YES somente com overview ou com ausência de validação no abstract."
         )
     )
 
@@ -634,8 +652,56 @@ Use quando existir indício concreto ligado à solução de:
 - predição;
 - reconhecimento;
 - adaptação;
+- avaliação computacional de desempenho ou progresso terapêutico
+  a partir dos dados adquiridos pelo sistema;
 
 mas a abordagem não estiver suficientemente caracterizada.
+
+No caso de avaliação computacional, devem existir os dois elementos:
+
+1. dados adquiridos de sensores, dispositivos ou da interação do usuário;
+2. uso desses dados pela própria solução para produzir uma avaliação
+   do desempenho, estado funcional ou progresso terapêutico.
+
+Quando o abstract apresentar essa função analítica, mas não informar
+se utiliza modelos de IA ou processamento convencional, classifique
+ai = UNCERTAIN e explique qual método precisa ser verificado no
+texto completo.
+
+Isso NÃO confirma IA e NÃO autoriza ai = YES.
+
+A simples presença de sensores, robôs, monitoramento, armazenamento,
+transmissão de dados, visualização de indicadores ou cálculo de pontos
+NÃO é suficiente para esse indício. Deve haver uma função de avaliação
+ligada à própria solução, com abordagem não especificada.
+
+Se o texto esclarecer que essa avaliação utiliza exclusivamente
+limiares fixos, regras predeterminadas ou cálculos convencionais,
+sem outro componente de IA na solução, mantenha ai = NO.
+
+Não justifique ai = NO somente com "não menciona IA" quando houver
+a função analítica descrita acima e o método estiver omitido.
+Na evidência, diferencie o que o texto demonstra do que permanece
+desconhecido. Não atribua uma técnica de IA que não esteja descrita.
+
+LEITURA CONJUNTA DO TÍTULO E DO ABSTRACT:
+
+O título também é evidência; não avalie IA apenas procurando nomes de
+algoritmos no abstract. Quando o título indicar Computer Vision e o abstract
+descrever reconhecimento de gestos efetivamente usado para controlar o jogo,
+a função de reconhecimento pertence à solução, mesmo sem nomear o modelo.
+Se o método de reconhecimento não estiver explicado, use ai = UNCERTAIN.
+Não conclua ai = NO apenas porque há EMG, giroscópio, Arduino, IDE ou LCD:
+esses componentes não caracterizam, por si, o método de reconhecimento.
+Um ambiente de programação como VS Code ou PyCharm não é uma técnica de IA.
+
+Diferencie funções da mesma solução: cálculos convencionais dos sinais EMG
+não demonstram que o reconhecimento visual de gestos também é convencional.
+Só atribua NO por processamento convencional se os metadados caracterizarem
+a função relevante dessa forma, sem outra função de IA plausível omitida.
+Reconhecimento de gestos por limiares ou regras fixas explicitamente descritos,
+sem outro indício de IA na solução, continua sendo ai = NO. Um título isolado
+sobre Computer Vision, sem apoio na solução descrita, não autoriza YES.
 
 ============================================================
 5. INTERNET DAS COISAS
@@ -800,6 +866,21 @@ principal ou método do trabalho é:
 
 "overview" isoladamente NÃO demonstra revisão.
 
+Não confunda "overview of our/the [named] system" com revisão da literatura.
+Um artigo pode apresentar uma visão geral da arquitetura ou plataforma que
+os autores propõem, mesmo sem resumir experimentos no abstract. Ausência de
+participantes, métricas ou validação no abstract não prova estudo secundário,
+publicação incompleta ou ausência de contribuição original.
+
+YES exige evidência positiva de síntese/revisão de estudos anteriores, protocolo
+sem estudo, resumo/poster/editorial ou publicação explicitamente incompleta.
+Quando o texto apresenta o próprio sistema, seus componentes e sua integração,
+sem indicar método de revisão, não use YES por causa de "overview". Use NO se
+a contribuição original estiver clara; UNCERTAIN se sua natureza permanecer
+ambígua. Não suponha que testes ou protótipos ausentes do abstract não existam.
+Uma revisão de sistemas de terceiros continua YES, mesmo que diga "we present".
+
+
 Se houver contribuição original clara, como:
 
 - we developed;
@@ -849,7 +930,22 @@ Não use YES apenas para evitar falsos negativos.
 
 Não use NO apenas porque o abstract omitiu um detalhe
 técnico.
-"""
+
+============================================================
+CONFERÊNCIA FINAL ANTES DE RETORNAR O SCHEMA
+============================================================
+
+Sem acrescentar campos nem texto fora do schema:
+1. Se secondary_or_incomplete = YES, confira se evidence_study_type aponta
+   evidência positiva de revisão/protocolo/publicação incompleta. A palavra
+   overview ou a ausência de experimento no abstract não bastam.
+2. Se ai = NO, confira se considerou título, abstract e keywords juntos.
+   Reconhecimento visual/gestual da própria solução com método não informado
+   exige UNCERTAIN quando há os indícios descritos na seção de IA.
+3. Não confunda método não descrito com método convencional comprovado.
+   Evidências devem explicar a incerteza sem inventar algoritmos.
+4. Não utilize conhecimento de textos completos ou de artigos específicos.
+""".strip()
 
 
 # ============================================================
@@ -1497,6 +1593,55 @@ CALIBRATED_ASSISTIVE_TERMS = [
 ]
 
 
+def ai_negative_is_metadata_omission(assessment):
+    """Review cue, not evidence that the study uses AI.
+
+    Applies only to an AI=NO justification. Explicit absence of AI or
+    conventional-only methods blocks this rescue. Free-text cues can miss
+    paraphrases; they are intentionally confined to the AAL review rule.
+    """
+    evidence = str(getattr(assessment, "evidence_ai", "") or "")
+    notes = str(getattr(assessment, "notes", "") or "")
+    def clean(value):
+        value = unicodedata.normalize("NFKD", value).casefold()
+        value = "".join(c for c in value if not unicodedata.combining(c))
+        return re.sub(r"\s+", " ", value)
+    justification = clean(evidence)
+    combined = clean(evidence + " " + notes)
+    blockers = (
+        "does not use", "do not use", "not used", "without artificial intelligence",
+        "without machine learning", "no ai is used", "sem inteligencia artificial",
+        "nao utiliza", "nao emprega", "regras fixas", "regras predeterminadas",
+        "regras predefinidas", "fixed rules", "predefined rules", "rule-based",
+        "rule based", "threshold", "limiar", "calculo convencional",
+        "calculos convencionais", "conventional calculation", "traditional statistics",
+        "estatistica tradicional", "only arithmetic", "apenas calculos",
+    )
+    if any(cue in combined for cue in blockers):
+        return False
+    omission = (
+        "does not mention", "do not mention", "no mention", "not mentioned",
+        "nao menciona", "nao mencionam", "nao ha mencao", "nao e mencionad",
+        "nao sao mencionad", "does not specify", "not specified", "nao especifica",
+        "nao especificad", "does not describe", "nao descreve",
+    )
+    ai_topic = re.search(
+        r"\b(?:ai|ia)\b|artificial intelligence|inteligencia artificial|machine learning|"
+        r"aprendizado de maquina|neural|redes neurais", justification
+    )
+    return bool(ai_topic) and any(cue in justification for cue in omission)
+
+
+def aal_stimulation_review_signal(text):
+    """Stimulation in a cognitive/physical context; never confirms a game."""
+    if contains_any(text, CALIBRATED_STIMULATION_TERMS):
+        return True
+    return bool(
+        re.search(r"\bstimulat(?:ion|ions|e|es|ed|ing)\b", text)
+        and re.search(r"\b(?:cognitive|physical|sedentariness)\b", text)
+    )
+
+
 def make_screening_decision(
     assessment,
     title="",
@@ -1586,6 +1731,30 @@ def make_screening_decision(
             "An assistive health platform with IoT and cognitive or physical "
             "stimulation is indicated; the game component needs review.",
             "RESGATE_AAL_ESTIMULACAO",
+        )
+
+    # Rescue D: AAL metadata omission, never automatic inclusion.
+    # Keep study/gamification uncertainty out of this exception. Missing IoT
+    # details are reviewable only with an acquisition/monitoring signal.
+    if (
+        study_type == "NO"
+        and gamification_only == "NO"
+        and serious_game == "NO"
+        and health == "YES"
+        and ai == "NO"
+        and ai_negative_is_metadata_omission(assessment)
+        and iot in {"EXPLICIT_IOT", "FUNCTIONALLY_COMPATIBLE", "UNCERTAIN"}
+        and acquisition
+        and assistive
+        and aal_stimulation_review_signal(text)
+    ):
+        return (
+            "UNCERTAIN",
+            "An assistive health platform with stimulation and acquisition or "
+            "monitoring is indicated. AI was marked negative only because its "
+            "method is not mentioned. Verify the game, AI and connectivity in "
+            "the full text; this rescue confirms none of them.",
+            "RESGATE_AAL_METADADOS_INCOMPLETOS",
         )
 
     # Core exclusions precede unresolved labels, as in the calibration.
