@@ -4,7 +4,8 @@ Enrich Springer metadata using the Springer Nature Meta API.
 Primary purpose:
     retrieve missing abstracts for Springer records.
 
-The script is checkpoint-based and can safely be resumed.
+Current imports are merged with the enrichment checkpoint,
+preserving previously recovered metadata and API status columns.
 
 Environment variable required:
     SPRINGER_API_KEY
@@ -14,6 +15,7 @@ from html import unescape
 from pathlib import Path
 import os
 import re
+import tempfile
 import time
 
 import pandas as pd
@@ -23,8 +25,9 @@ from dotenv import load_dotenv
 from . import (
     PROJECT_ROOT,
     PROCESSED_DIR,
+    SOURCE_FILE_CANDIDATES,
     normalize_doi,
-    resolve_database_source_file,
+    normalize_title,
     safe_text,
     standardize_dataframe,
 )
@@ -66,24 +69,17 @@ FINAL_STATUSES = {
 # TEXT CLEANING
 # ============================================================
 
-def clean_html(
-    value,
-):
+def clean_html(value):
     """
     Removes basic HTML tags from API abstracts.
     """
 
-    value = safe_text(
-        value
-    )
+    value = safe_text(value)
 
     if not value:
-
         return ""
 
-    value = unescape(
-        value
-    )
+    value = unescape(value)
 
     value = re.sub(
         r"<[^>]+>",
@@ -100,9 +96,7 @@ def clean_html(
     return value.strip()
 
 
-def extract_keywords(
-    record,
-):
+def extract_keywords(record):
     """
     Extracts keywords from possible Springer API representations.
     """
@@ -112,18 +106,12 @@ def extract_keywords(
         "keywords",
     ]:
 
-        value = record.get(
-            field
-        )
+        value = record.get(field)
 
         if not value:
-
             continue
 
-        if isinstance(
-            value,
-            list,
-        ):
+        if isinstance(value, list):
 
             cleaned = [
                 safe_text(item)
@@ -131,13 +119,9 @@ def extract_keywords(
                 if safe_text(item)
             ]
 
-            return "; ".join(
-                cleaned
-            )
+            return "; ".join(cleaned)
 
-        return safe_text(
-            value
-        )
+        return safe_text(value)
 
     return ""
 
@@ -159,9 +143,7 @@ def request_springer_metadata(
         status, record, error_message
     """
 
-    normalized_doi = normalize_doi(
-        doi
-    )
+    normalized_doi = normalize_doi(doi)
 
     if not normalized_doi:
 
@@ -227,10 +209,7 @@ def request_springer_metadata(
                 return (
                     "AUTH_OR_QUOTA_ERROR",
                     None,
-                    (
-                        f"HTTP "
-                        f"{response.status_code}"
-                    ),
+                    f"HTTP {response.status_code}",
                 )
 
             response.raise_for_status()
@@ -239,7 +218,7 @@ def request_springer_metadata(
 
             records = payload.get(
                 "records",
-                []
+                [],
             )
 
             if not records:
@@ -266,13 +245,9 @@ def request_springer_metadata(
                     str(error),
                 )
 
-            wait_seconds = (
-                2 ** attempt
-            )
+            wait_seconds = 2 ** attempt
 
-            time.sleep(
-                wait_seconds
-            )
+            time.sleep(wait_seconds)
 
         except ValueError as error:
 
@@ -293,40 +268,265 @@ def request_springer_metadata(
 # LOAD INPUT / CHECKPOINT
 # ============================================================
 
+def resolve_springer_import_file():
+    """
+    Finds the processed import, excluding enriched checkpoint files.
+    """
+
+    enriched_names = {
+        OUTPUT_FILE.name,
+        "springer_records_enriched.xlsx",
+        "springer_registros_enriquecidos.xlsx",
+    }
+
+    for filename in SOURCE_FILE_CANDIDATES["springer"]:
+
+        if filename in enriched_names:
+            continue
+
+        candidate = PROCESSED_DIR / filename
+
+        if candidate.exists():
+            return candidate
+
+    return None
+
+
+def merge_springer_records(
+    checkpoint,
+    imported,
+):
+    """
+    Preserves checkpoint records and appends newly imported records.
+
+    Match by DOI first, then normalized title when the DOIs do not
+    conflict. Existing values are preserved; missing fields are filled
+    from the current import. API-specific checkpoint columns are retained.
+    """
+
+    records = checkpoint.to_dict(
+        orient="records"
+    )
+
+    doi_index = {}
+    title_index = {}
+
+    def index_record(position):
+
+        record = records[position]
+
+        doi = normalize_doi(
+            record.get("doi", "")
+        )
+
+        title = normalize_title(
+            record.get("title", "")
+        )
+
+        if doi:
+            doi_index.setdefault(
+                doi,
+                position,
+            )
+
+        if title:
+
+            positions = title_index.setdefault(
+                title,
+                [],
+            )
+
+            if position not in positions:
+                positions.append(position)
+
+    for position in range(len(records)):
+        index_record(position)
+
+    for _, row in imported.iterrows():
+
+        incoming = row.to_dict()
+
+        incoming_doi = normalize_doi(
+            incoming.get("doi", "")
+        )
+
+        incoming_title = normalize_title(
+            incoming.get("title", "")
+        )
+
+        matched_position = None
+
+        # ----------------------------------------------------
+        # MATCH BY DOI
+        # ----------------------------------------------------
+
+        if incoming_doi:
+            matched_position = doi_index.get(
+                incoming_doi
+            )
+
+        # ----------------------------------------------------
+        # MATCH BY TITLE WITHOUT CONFLICTING DOIS
+        # ----------------------------------------------------
+
+        if (
+            matched_position is None
+            and incoming_title
+        ):
+
+            for position in title_index.get(
+                incoming_title,
+                [],
+            ):
+
+                existing_doi = normalize_doi(
+                    records[position].get(
+                        "doi",
+                        "",
+                    )
+                )
+
+                # Different non-empty DOIs remain separate records.
+                if (
+                    incoming_doi
+                    and existing_doi
+                    and incoming_doi != existing_doi
+                ):
+                    continue
+
+                matched_position = position
+                break
+
+        # ----------------------------------------------------
+        # NEW RECORD
+        # ----------------------------------------------------
+
+        if matched_position is None:
+
+            records.append(
+                incoming.copy()
+            )
+
+            index_record(
+                len(records) - 1
+            )
+
+            continue
+
+        # ----------------------------------------------------
+        # EXISTING RECORD
+        # ----------------------------------------------------
+
+        existing = records[
+            matched_position
+        ]
+
+        previous_doi = normalize_doi(
+            existing.get("doi", "")
+        )
+
+        previous_status = safe_text(
+            existing.get(
+                "springer_api_status",
+                "",
+            )
+        )
+
+        # Preserve existing values and fill only missing fields.
+        for column, value in incoming.items():
+
+            if column.startswith("springer_api_"):
+                continue
+
+            if (
+                not safe_text(
+                    existing.get(column, "")
+                )
+                and safe_text(value)
+            ):
+
+                existing[column] = value
+
+        # A record previously lacking a DOI can now be queried.
+        if (
+            previous_status == "NO_DOI"
+            and not previous_doi
+            and normalize_doi(
+                existing.get("doi", "")
+            )
+        ):
+
+            existing[
+                "springer_api_status"
+            ] = ""
+
+            existing[
+                "springer_api_error"
+            ] = ""
+
+        index_record(
+            matched_position
+        )
+
+    # Preserve checkpoint columns, including API-specific fields.
+    columns = list(
+        checkpoint.columns
+    )
+
+    columns.extend(
+        column
+        for column in imported.columns
+        if column not in columns
+    )
+
+    return pd.DataFrame(
+        records,
+        columns=columns,
+    ).reset_index(
+        drop=True
+    )
+
+
 def load_springer_records():
     """
-    Loads an existing enriched checkpoint when available.
-    Otherwise loads the latest Springer processed file.
+    Combines the current Springer import with the enriched checkpoint.
+
+    Previously recovered metadata and API status columns are preserved.
+    Newly imported records are appended for subsequent enrichment.
     """
+
+    checkpoint = None
 
     if OUTPUT_FILE.exists():
 
-        dataframe = pd.read_excel(
+        # Do not standardize the checkpoint: API-specific columns
+        # must survive reloading.
+        checkpoint = pd.read_excel(
             OUTPUT_FILE
         )
 
-        return standardize_dataframe(
-            dataframe,
-            database="springer",
-        )
-
-    source_file = resolve_database_source_file(
-        "springer"
-    )
+    source_file = resolve_springer_import_file()
 
     if source_file is None:
+
+        if checkpoint is not None:
+            return checkpoint
 
         raise FileNotFoundError(
             "No Springer processed file was found."
         )
 
-    dataframe = pd.read_excel(
-        source_file
+    imported = standardize_dataframe(
+        pd.read_excel(source_file),
+        database="springer",
     )
 
-    return standardize_dataframe(
-        dataframe,
-        database="springer",
+    if checkpoint is None:
+        return imported
+
+    return merge_springer_records(
+        checkpoint,
+        imported,
     )
 
 
@@ -338,7 +538,7 @@ def save_checkpoint(
     dataframe,
 ):
     """
-    Saves the current enrichment state.
+    Saves the current enrichment state using an atomic replacement.
     """
 
     OUTPUT_FILE.parent.mkdir(
@@ -346,10 +546,27 @@ def save_checkpoint(
         exist_ok=True,
     )
 
-    dataframe.to_excel(
-        OUTPUT_FILE,
-        index=False,
-    )
+    with tempfile.NamedTemporaryFile(
+        dir=OUTPUT_FILE.parent,
+        prefix=f".{OUTPUT_FILE.stem}_",
+        suffix=".xlsx",
+        delete=False,
+    ) as temporary_file:
+        temporary_path = Path(temporary_file.name)
+
+    try:
+        dataframe.to_excel(
+            temporary_path,
+            index=False,
+        )
+
+        os.replace(
+            temporary_path,
+            OUTPUT_FILE,
+        )
+
+    finally:
+        temporary_path.unlink(missing_ok=True)
 
 
 # ============================================================
@@ -378,24 +595,17 @@ def enrich_records(
     ]:
 
         if column not in df.columns:
-
-            df[
-                column
-            ] = ""
+            df[column] = ""
 
     # --------------------------------------------------------
     # PRE-CALCULATE PENDING RECORDS
     # --------------------------------------------------------
 
-    total_records = len(
-        df
-    )
+    total_records = len(df)
 
     abstracts_before = int(
         (
-            df[
-                "abstract"
-            ]
+            df["abstract"]
             .fillna("")
             .astype(str)
             .str.strip()
@@ -409,13 +619,11 @@ def enrich_records(
     errors_count = 0
 
     print(
-        f"\nRecords: "
-        f"{total_records}"
+        f"\nRecords: {total_records}"
     )
 
     print(
-        f"Abstracts already available: "
-        f"{abstracts_before}"
+        f"Abstracts already available: {abstracts_before}"
     )
 
     for position, index in enumerate(
@@ -424,24 +632,15 @@ def enrich_records(
     ):
 
         title = safe_text(
-            df.at[
-                index,
-                "title",
-            ]
+            df.at[index, "title"]
         )
 
         doi = normalize_doi(
-            df.at[
-                index,
-                "doi",
-            ]
+            df.at[index, "doi"]
         )
 
         abstract = safe_text(
-            df.at[
-                index,
-                "abstract",
-            ]
+            df.at[index, "abstract"]
         )
 
         previous_status = safe_text(
@@ -493,8 +692,7 @@ def enrich_records(
         if previous_status in FINAL_STATUSES:
 
             print(
-                f"  Previous final status: "
-                f"{previous_status}"
+                f"  Previous final status: {previous_status}"
             )
 
             continue
@@ -514,9 +712,7 @@ def enrich_records(
                 "  No DOI available."
             )
 
-            save_checkpoint(
-                df
-            )
+            save_checkpoint(df)
 
             continue
 
@@ -539,8 +735,7 @@ def enrich_records(
             )
 
             print(
-                f"\nCalls made this run: "
-                f"{api_calls}"
+                f"\nCalls made this run: {api_calls}"
             )
 
             print(
@@ -639,10 +834,7 @@ def enrich_records(
 
             if (
                 not safe_text(
-                    df.at[
-                        index,
-                        "keywords",
-                    ]
+                    df.at[index, "keywords"]
                 )
                 and api_keywords
             ):
@@ -654,10 +846,7 @@ def enrich_records(
 
             if (
                 not safe_text(
-                    df.at[
-                        index,
-                        "document_type",
-                    ]
+                    df.at[index, "document_type"]
                 )
                 and api_document_type
             ):
@@ -679,9 +868,7 @@ def enrich_records(
             df.at[
                 index,
                 "metadata_source",
-            ] = (
-                "Springer Nature Meta API v2"
-            )
+            ] = "Springer Nature Meta API v2"
 
             if api_abstract:
 
@@ -725,9 +912,7 @@ def enrich_records(
                 "Checkpoint saved."
             )
 
-            save_checkpoint(
-                df
-            )
+            save_checkpoint(df)
 
             break
 
@@ -750,9 +935,7 @@ def enrich_records(
                 "Checkpoint saved."
             )
 
-            save_checkpoint(
-                df
-            )
+            save_checkpoint(df)
 
             break
 
@@ -765,17 +948,14 @@ def enrich_records(
             errors_count += 1
 
             print(
-                f"  API error: "
-                f"{error_message}"
+                f"  API error: {error_message}"
             )
 
         # ====================================================
         # CHECKPOINT
         # ====================================================
 
-        save_checkpoint(
-            df
-        )
+        save_checkpoint(df)
 
         print(
             "  Checkpoint saved."
@@ -791,9 +971,7 @@ def enrich_records(
 
     abstracts_after = int(
         (
-            df[
-                "abstract"
-            ]
+            df["abstract"]
             .fillna("")
             .astype(str)
             .str.strip()
@@ -814,18 +992,15 @@ def enrich_records(
     )
 
     print(
-        f"\nRecords: "
-        f"{len(df)}"
+        f"\nRecords: {len(df)}"
     )
 
     print(
-        f"Abstracts before: "
-        f"{abstracts_before}"
+        f"Abstracts before: {abstracts_before}"
     )
 
     print(
-        f"Abstracts after: "
-        f"{abstracts_after}"
+        f"Abstracts after: {abstracts_after}"
     )
 
     print(
@@ -834,18 +1009,15 @@ def enrich_records(
     )
 
     print(
-        f"API calls this run: "
-        f"{api_calls}"
+        f"API calls this run: {api_calls}"
     )
 
     print(
-        f"API records not found: "
-        f"{not_found_count}"
+        f"API records not found: {not_found_count}"
     )
 
     print(
-        f"Technical errors: "
-        f"{errors_count}"
+        f"Technical errors: {errors_count}"
     )
 
     return df
@@ -870,8 +1042,7 @@ def main():
     )
 
     load_dotenv(
-        PROJECT_ROOT
-        / ".env"
+        PROJECT_ROOT / ".env"
     )
 
     api_key = os.getenv(

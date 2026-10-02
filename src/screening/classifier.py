@@ -38,7 +38,7 @@ MODEL_NAME = "gemini-3.5-flash-lite"
 
 PROMPT_VERSION = "1.6"
 
-CLASSIFIER_VERSION = "1.8"
+CLASSIFIER_VERSION = "1.9"
 
 MAX_ATTEMPTS = 3
 
@@ -528,15 +528,49 @@ def combined_metadata(
     )
 
 
+# Acronyms must appear as complete terms, not inside other words.
+ACRONYM_SIGNALS = {
+    "cnn",
+    "rnn",
+    "xai",
+    "emg",
+    "eeg",
+    "eog",
+    "imu",
+    "ble",
+    "udp",
+    "tcp",
+    "mqtt",
+    "iot",
+    "iomt",
+    "xr",
+}
+
+
 def contains_any(
     text,
     terms,
 ):
 
-    return any(
-        term in text
-        for term in terms
-    )
+    for term in terms:
+
+        if term in ACRONYM_SIGNALS:
+
+            pattern = (
+                rf"(?<!\w){re.escape(term)}(?!\w)"
+            )
+
+            if re.search(
+                pattern,
+                text,
+                flags=re.IGNORECASE,
+            ):
+                return True
+
+        elif term in text:
+            return True
+
+    return False
 
 
 # ============================================================
@@ -959,7 +993,7 @@ def analyze_article(
 
 
 # ============================================================
-# DETERMINISTIC CLASSIFIER V1.8
+# DETERMINISTIC CLASSIFIER V1.9
 # ============================================================
 
 def make_screening_decision(

@@ -1,17 +1,12 @@
 """
 Update the master dataset with newly imported database records.
 
-This module replaces database-specific master update scripts.
+Existing MASTER IDs and populated bibliographic fields are preserved.
+Missing metadata can be filled from duplicate records. New records are
+indexed immediately in memory, so duplicates within a new batch are safe.
 
 Supported databases:
-
-- ieee
-- pubmed
-- acm
-- scopus
-- compendex
-- springer
-- all
+    ieee, pubmed, acm, scopus, compendex, springer, all
 """
 
 from datetime import datetime
@@ -30,22 +25,32 @@ from . import (
     normalize_title,
     read_table,
     resolve_database_source_file,
+    safe_text,
     standardize_dataframe,
 )
 
-from .assign_master_ids import (
-    assign_master_ids,
-)
+from .assign_master_ids import assign_master_ids
 
 
 # ============================================================
-# REPORT FILE
+# OUTPUT AND METADATA FIELDS
 # ============================================================
 
 DUPLICATES_REPORT = (
-    PROCESSED_DIR
-    / "master_duplicates_not_added.xlsx"
+    PROCESSED_DIR / "master_duplicates_not_added.xlsx"
 )
+
+FILLABLE_METADATA_FIELDS = [
+    "title",
+    "authors",
+    "year",
+    "publication",
+    "document_type",
+    "doi",
+    "abstract",
+    "keywords",
+    "url",
+]
 
 
 # ============================================================
@@ -53,30 +58,18 @@ DUPLICATES_REPORT = (
 # ============================================================
 
 def create_master_backup():
-    """
-    Creates a timestamped backup before updating the master dataset.
-    """
+    """Creates a timestamped backup before updating the master."""
 
     if not MASTER_FILE.exists():
-
         return None
 
-    timestamp = datetime.now().strftime(
-        "%Y%m%d_%H%M%S"
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+
+    backup_file = MASTER_FILE.parent / (
+        f"master_records_backup_{timestamp}.xlsx"
     )
 
-    backup_file = (
-        MASTER_FILE.parent
-        / (
-            "master_records_backup_"
-            f"{timestamp}.xlsx"
-        )
-    )
-
-    shutil.copy2(
-        MASTER_FILE,
-        backup_file,
-    )
+    shutil.copy2(MASTER_FILE, backup_file)
 
     return backup_file
 
@@ -86,339 +79,234 @@ def create_master_backup():
 # ============================================================
 
 def load_master():
-    """
-    Loads the existing master dataset or creates an empty one.
-    """
+    """Loads the existing master or creates an empty DataFrame."""
 
     if not MASTER_FILE.exists():
+        return pd.DataFrame(columns=CANONICAL_COLUMNS)
 
-        return pd.DataFrame(
-            columns=CANONICAL_COLUMNS
-        )
-
-    master = pd.read_excel(
-        MASTER_FILE
-    )
+    master = pd.read_excel(MASTER_FILE)
 
     for column in CANONICAL_COLUMNS:
-
         if column not in master.columns:
+            master[column] = ""
 
-            master[
-                column
-            ] = ""
-
-    return master
+    return master.reset_index(drop=True)
 
 
 # ============================================================
 # DUPLICATE INDICES
 # ============================================================
 
-def build_existing_indices(
-    master,
-):
-    """
-    Builds DOI and title lookup dictionaries.
-    """
+def build_existing_indices(master):
+    """Builds DOI and normalized-title lookup dictionaries."""
 
     doi_index = {}
     title_index = {}
 
     for index, row in master.iterrows():
+        doi_key = normalize_doi(row.get("doi", ""))
+        title_key = normalize_title(row.get("title", ""))
 
-        doi_key = normalize_doi(
-            row.get(
-                "doi",
-                "",
-            )
-        )
+        if doi_key:
+            doi_index.setdefault(doi_key, index)
 
-        title_key = normalize_title(
-            row.get(
-                "title",
-                "",
-            )
-        )
+        if title_key:
+            title_index.setdefault(title_key, index)
 
-        if (
-            doi_key
-            and doi_key not in doi_index
+    return doi_index, title_index
+
+
+def index_record(records, position, doi_index, title_index):
+    """Indexes a record already present in the in-memory list."""
+
+    record = records[position]
+    doi_key = normalize_doi(record.get("doi", ""))
+    title_key = normalize_title(record.get("title", ""))
+
+    if doi_key:
+        doi_index.setdefault(doi_key, position)
+
+    if title_key:
+        title_index.setdefault(title_key, position)
+
+
+# ============================================================
+# FILL MISSING METADATA
+# ============================================================
+
+def fill_missing_metadata(existing, incoming):
+    """
+    Fills only empty bibliographic fields in an existing record.
+
+    MASTER ID, source ID and original database are preserved.
+    Acquisition status and sources are updated when metadata are filled.
+    Returns the names of the bibliographic fields filled.
+    """
+
+    filled_fields = []
+
+    for column in FILLABLE_METADATA_FIELDS:
+        current_value = safe_text(existing.get(column, ""))
+        incoming_value = safe_text(incoming.get(column, ""))
+
+        if not current_value and incoming_value:
+            existing[column] = incoming_value
+            filled_fields.append(column)
+
+    if filled_fields:
+        incoming_source = safe_text(incoming.get("metadata_source", ""))
+        existing_source = safe_text(existing.get("metadata_source", ""))
+
+        if incoming_source:
+            sources = [
+                source.strip()
+                for source in existing_source.split(" | ")
+                if source.strip()
+            ]
+
+            if incoming_source not in sources:
+                sources.append(incoming_source)
+
+            existing["metadata_source"] = " | ".join(sources)
+
+        incoming_status = safe_text(incoming.get("metadata_status", ""))
+
+        if incoming_status and (
+            "abstract" in filled_fields
+            or not safe_text(existing.get("metadata_status", ""))
         ):
+            existing["metadata_status"] = incoming_status
 
-            doi_index[
-                doi_key
-            ] = index
-
-        if (
-            title_key
-            and title_key not in title_index
-        ):
-
-            title_index[
-                title_key
-            ] = index
-
-    return (
-        doi_index,
-        title_index,
-    )
+    return filled_fields
 
 
 # ============================================================
 # UPDATE ONE DATABASE
 # ============================================================
 
-def update_database(
-    master,
-    database,
-):
+def update_database(master, database):
     """
-    Adds new records from one database to the master dataset.
+    Adds new records and fills missing metadata from duplicate records.
 
-    Existing records are detected by DOI first and normalized title
-    second.
-
-    Returns
-    -------
-    tuple
-        updated_master,
-        duplicate_records,
-        added_count
+    Matching follows the existing policy: DOI first, normalized title
+    second. Returns updated_master, duplicate_records, added_count.
     """
 
-    source_file = resolve_database_source_file(
-        database
-    )
+    source_file = resolve_database_source_file(database)
+    database_name = DATABASE_NAMES[database]
 
-    database_name = DATABASE_NAMES[
-        database
-    ]
-
-    print(
-        "\n" + "-" * 70
-    )
-
-    print(
-        database_name
-    )
-
-    print(
-        "-" * 70
-    )
+    print("\n" + "-" * 70)
+    print(database_name)
+    print("-" * 70)
 
     if source_file is None:
+        print("No processed source file found.")
+        return master, [], 0
 
-        print(
-            "No processed source file found."
-        )
-
-        return (
-            master,
-            [],
-            0,
-        )
-
-    print(
-        f"Source file: "
-        f"{source_file.name}"
-    )
-
-    raw = read_table(
-        source_file
-    )
+    print(f"Source file: {source_file.name}")
 
     new_records = standardize_dataframe(
-        raw,
+        read_table(source_file),
         database=database,
     )
 
-    (
-        doi_index,
-        title_index,
-    ) = build_existing_indices(
-        master
-    )
-
-    duplicates = []
-    additions = []
-
-    for _, row in new_records.iterrows():
-
-        record = row.to_dict()
-
-        doi_key = normalize_doi(
-            record.get(
-                "doi",
-                "",
-            )
-        )
-
-        title_key = normalize_title(
-            record.get(
-                "title",
-                "",
-            )
-        )
-
-        matched_index = None
-        duplicate_reason = ""
-
-        # ----------------------------------------------------
-        # DOI DUPLICATE
-        # ----------------------------------------------------
-
-        if (
-            doi_key
-            and doi_key in doi_index
-        ):
-
-            matched_index = doi_index[
-                doi_key
-            ]
-
-            duplicate_reason = "DOI"
-
-        # ----------------------------------------------------
-        # TITLE DUPLICATE
-        # ----------------------------------------------------
-
-        elif (
-            title_key
-            and title_key in title_index
-        ):
-
-            matched_index = title_index[
-                title_key
-            ]
-
-            duplicate_reason = "TITLE"
-
-        # ----------------------------------------------------
-        # DUPLICATE
-        # ----------------------------------------------------
-
-        if matched_index is not None:
-
-            existing = master.loc[
-                matched_index
-            ]
-
-            duplicate_record = (
-                record.copy()
-            )
-
-            duplicate_record[
-                "duplicate_reason"
-            ] = duplicate_reason
-
-            duplicate_record[
-                "matched_master_id"
-            ] = existing.get(
-                "master_id",
-                "",
-            )
-
-            duplicate_record[
-                "matched_database"
-            ] = existing.get(
-                "database",
-                "",
-            )
-
-            duplicate_record[
-                "matched_title"
-            ] = existing.get(
-                "title",
-                "",
-            )
-
-            duplicates.append(
-                duplicate_record
-            )
-
-            continue
-
-        # ----------------------------------------------------
-        # NEW RECORD
-        # ----------------------------------------------------
-
-        additions.append(
-            record
-        )
-
-        future_index = (
-            len(master)
-            + len(additions)
-            - 1
-        )
-
-        if doi_key:
-
-            doi_index[
-                doi_key
-            ] = future_index
-
-        if title_key:
-
-            title_index[
-                title_key
-            ] = future_index
-
-    # ========================================================
-    # APPEND
-    # ========================================================
-
-    if additions:
-
-        additions_df = pd.DataFrame(
-            additions
-        )
-
-        master = pd.concat(
-            [
-                master,
-                additions_df,
-            ],
-            ignore_index=True,
-        )
-
-    master = assign_master_ids(
-        master
-    )
+    working_master = master.copy().reset_index(drop=True)
 
     for column in CANONICAL_COLUMNS:
+        if column not in working_master.columns:
+            working_master[column] = ""
 
-        if column not in master.columns:
+    working_master = assign_master_ids(working_master)
 
-            master[
-                column
-            ] = ""
+    doi_index, title_index = build_existing_indices(working_master)
+    records = working_master.to_dict(orient="records")
 
-    master = master[
-        CANONICAL_COLUMNS
-    ]
+    duplicates = []
+    added_count = 0
+    enriched_positions = set()
 
-    print(
-        f"Records read: "
-        f"{len(new_records)}"
-    )
+    for _, row in new_records.iterrows():
+        record = row.to_dict()
+        doi_key = normalize_doi(record.get("doi", ""))
+        title_key = normalize_title(record.get("title", ""))
 
-    print(
-        f"Added: "
-        f"{len(additions)}"
-    )
+        matched_position = None
+        duplicate_reason = ""
 
-    print(
-        f"Duplicates skipped: "
-        f"{len(duplicates)}"
-    )
+        if doi_key and doi_key in doi_index:
+            matched_position = doi_index[doi_key]
+            duplicate_reason = "DOI"
 
-    return (
-        master,
-        duplicates,
-        len(additions),
-    )
+        elif title_key and title_key in title_index:
+            matched_position = title_index[title_key]
+            duplicate_reason = "TITLE"
+
+        if matched_position is not None:
+            # This list includes both original and newly added records.
+            existing = records[matched_position]
+
+            filled_fields = fill_missing_metadata(existing, record)
+
+            if filled_fields:
+                enriched_positions.add(matched_position)
+
+            # A DOI recovered through title matching must be indexed.
+            index_record(
+                records,
+                matched_position,
+                doi_index,
+                title_index,
+            )
+
+            duplicate_record = record.copy()
+            duplicate_record["duplicate_reason"] = duplicate_reason
+            duplicate_record["fields_filled"] = "; ".join(filled_fields)
+            duplicate_record["metadata_update_source"] = (
+                safe_text(record.get("metadata_source", ""))
+                if filled_fields else ""
+            )
+            duplicate_record["_matched_position"] = matched_position
+            duplicates.append(duplicate_record)
+            continue
+
+        # New MASTER IDs are assigned by this pipeline, not imported.
+        record["master_id"] = ""
+        records.append(record)
+        added_count += 1
+
+        # Index only after the record exists in the list.
+        index_record(
+            records,
+            len(records) - 1,
+            doi_index,
+            title_index,
+        )
+
+    updated_master = pd.DataFrame(records, columns=CANONICAL_COLUMNS)
+    updated_master = assign_master_ids(updated_master)
+    updated_master = updated_master[CANONICAL_COLUMNS]
+
+    # Resolve matched IDs after all new records have received IDs.
+    for duplicate_record in duplicates:
+        matched_position = duplicate_record.pop("_matched_position")
+        existing = updated_master.iloc[matched_position]
+
+        duplicate_record["matched_master_id"] = safe_text(
+            existing.get("master_id", "")
+        )
+        duplicate_record["matched_database"] = safe_text(
+            existing.get("database", "")
+        )
+        duplicate_record["matched_title"] = safe_text(
+            existing.get("title", "")
+        )
+
+    print(f"Records read: {len(new_records)}")
+    print(f"Added: {added_count}")
+    print(f"Duplicate records not added: {len(duplicates)}")
+    print(f"Records with metadata filled: {len(enriched_positions)}")
+
+    return updated_master, duplicates, added_count
 
 
 # ============================================================
@@ -426,9 +314,7 @@ def update_database(
 # ============================================================
 
 def choose_database():
-    """
-    Used only when this module is executed directly.
-    """
+    """Used only when this module is executed directly."""
 
     options = {
         "1": "ieee",
@@ -440,235 +326,87 @@ def choose_database():
         "7": "all",
     }
 
-    print(
-        "\nSelect a database:"
-    )
+    print("\nSelect a database:")
+    print("\nIEEE Xplore                     [1]")
+    print("PubMed                          [2]")
+    print("ACM Digital Library             [3]")
+    print("Scopus                          [4]")
+    print("Engineering Village / Compendex [5]")
+    print("Springer Link                   [6]")
+    print("All databases                   [7]")
+    print("Cancel                          [0]")
 
-    print(
-        "\nIEEE Xplore                     [1]"
-    )
-
-    print(
-        "PubMed                          [2]"
-    )
-
-    print(
-        "ACM Digital Library             [3]"
-    )
-
-    print(
-        "Scopus                          [4]"
-    )
-
-    print(
-        "Engineering Village / Compendex [5]"
-    )
-
-    print(
-        "Springer Link                   [6]"
-    )
-
-    print(
-        "All databases                   [7]"
-    )
-
-    print(
-        "Cancel                          [0]"
-    )
-
-    choice = input(
-        "\nEnter an option: "
-    ).strip()
+    choice = input("\nEnter an option: ").strip()
 
     if choice == "0":
-
         return None
 
-    return options.get(
-        choice
-    )
+    return options.get(choice)
 
 
 # ============================================================
 # MAIN
 # ============================================================
 
-def main(
-    database=None,
-):
-    """
-    Updates master_records.xlsx.
+def main(database=None):
+    """Updates master_records.xlsx for one database or all databases."""
 
-    Parameters
-    ----------
-    database:
-        One of:
-        ieee, pubmed, acm, scopus, compendex, springer, all.
-    """
-
-    print(
-        "=" * 70
-    )
-
-    print(
-        "UPDATE MASTER DATASET"
-    )
-
-    print(
-        "=" * 70
-    )
+    print("=" * 70)
+    print("UPDATE MASTER DATASET")
+    print("=" * 70)
 
     if database is None:
-
         database = choose_database()
 
         if database is None:
-
-            print(
-                "\nOperation cancelled."
-            )
-
+            print("\nOperation cancelled.")
             return
 
-    database = str(
-        database
-    ).strip().lower()
+    database = str(database).strip().lower()
 
-    if (
-        database != "all"
-        and database not in DATABASE_ORDER
-    ):
-
-        raise ValueError(
-            f"Unsupported database: {database}"
-        )
+    if database != "all" and database not in DATABASE_ORDER:
+        raise ValueError(f"Unsupported database: {database}")
 
     master = load_master()
-
-    master_before = len(
-        master
-    )
-
+    master_before = len(master)
     backup = create_master_backup()
 
-    databases = (
-        DATABASE_ORDER
-        if database == "all"
-        else [database]
-    )
+    databases = DATABASE_ORDER if database == "all" else [database]
 
     all_duplicates = []
     total_added = 0
 
     for database_slug in databases:
-
-        (
-            master,
-            duplicates,
-            added,
-        ) = update_database(
-            master,
-            database_slug,
-        )
-
-        all_duplicates.extend(
-            duplicates
-        )
-
+        master, duplicates, added = update_database(master, database_slug)
+        all_duplicates.extend(duplicates)
         total_added += added
 
-    # ========================================================
-    # SAVE MASTER
-    # ========================================================
-
-    MASTER_FILE.parent.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-    master.to_excel(
-        MASTER_FILE,
-        index=False,
-    )
-
-    # ========================================================
-    # SAVE DUPLICATE REPORT
-    # ========================================================
+    MASTER_FILE.parent.mkdir(parents=True, exist_ok=True)
+    master.to_excel(MASTER_FILE, index=False)
 
     if all_duplicates:
-
-        duplicates_df = pd.DataFrame(
-            all_duplicates
-        )
-
-        duplicates_df.to_excel(
+        pd.DataFrame(all_duplicates).to_excel(
             DUPLICATES_REPORT,
             index=False,
         )
 
-    # ========================================================
-    # SUMMARY
-    # ========================================================
-
-    print(
-        "\n" + "=" * 70
-    )
-
-    print(
-        "MASTER DATASET UPDATED"
-    )
-
-    print(
-        "=" * 70
-    )
-
-    print(
-        f"\nMaster records before: "
-        f"{master_before}"
-    )
-
-    print(
-        f"Records added: "
-        f"{total_added}"
-    )
-
-    print(
-        f"Duplicates not added: "
-        f"{len(all_duplicates)}"
-    )
-
-    print(
-        f"Master records after: "
-        f"{len(master)}"
-    )
-
-    print(
-        "\nMaster file:"
-    )
-
-    print(
-        MASTER_FILE
-    )
+    print("\n" + "=" * 70)
+    print("MASTER DATASET UPDATED")
+    print("=" * 70)
+    print(f"\nMaster records before: {master_before}")
+    print(f"Records added: {total_added}")
+    print(f"Duplicates not added: {len(all_duplicates)}")
+    print(f"Master records after: {len(master)}")
+    print("\nMaster file:")
+    print(MASTER_FILE)
 
     if backup:
-
-        print(
-            "\nBackup:"
-        )
-
-        print(
-            backup
-        )
+        print("\nBackup:")
+        print(backup)
 
     if all_duplicates:
-
-        print(
-            "\nDuplicate report:"
-        )
-
-        print(
-            DUPLICATES_REPORT
-        )
+        print("\nDuplicate report:")
+        print(DUPLICATES_REPORT)
 
 
 if __name__ == "__main__":
