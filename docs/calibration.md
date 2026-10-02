@@ -100,13 +100,16 @@ The three uncertain records were intentionally preserved for human review rather
 
 ## Global Positive Stress Test
 
-A second sensitivity-oriented test was performed using previously included studies originating from multiple databases.
+A sensitivity-oriented test was performed using 15 previously included studies manually assessed across three databases:
 
-The final test contained:
+| Database | Relevant studies |
+|---|---:|
+| IEEE Xplore | 11 |
+| PubMed | 2 |
+| ACM Digital Library | 2 |
+| **Total** | **15** |
 
-```text
-15 previously included studies
-```
+The 11 relevant IEEE records described in the IEEE calibration section are included in this 15-study set and must not be counted twice. The multi-database test therefore extends the IEEE positive set with four additional studies from PubMed and ACM Digital Library.
 
 Final result:
 
@@ -116,19 +119,11 @@ Automatically excluded: 0
 Sensitivity: 100%
 ```
 
-The preserved studies could be distributed between:
+A study was considered preserved when the classifier assigned either `RETAIN` or `UNCERTAIN`, as both outcomes prevent automatic exclusion and allow subsequent human assessment.
 
-```text
-RETAIN
-```
+The purpose of this test was to determine whether the automated screening stage would incorrectly eliminate known relevant studies.
 
-and:
-
-```text
-UNCERTAIN
-```
-
-because the purpose of this test was to evaluate whether the automated screening stage would incorrectly eliminate known relevant studies.
+These records informed classifier development. Therefore, the reported results describe performance on development/calibration material and must not be interpreted as independent external validation.
 
 ---
 
