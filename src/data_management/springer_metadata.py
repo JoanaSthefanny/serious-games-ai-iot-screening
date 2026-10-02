@@ -33,6 +33,8 @@ from . import (
     title_match_is_compatible,
 )
 
+from .update_master import find_unique_source_match
+
 
 # ============================================================
 # API CONFIGURATION
@@ -214,8 +216,10 @@ def merge_springer_records(checkpoint, imported):
     """
     Preserves checkpoint records and appends newly imported records.
 
-    Match by DOI first, then a unique compatible normalized-title
-    candidate.
+    Match by DOI first, then a unique compatible origin candidate
+    (database and source ID), then a unique compatible normalized-title
+    candidate. Origin matching reuses the master-update compatibility
+    checks; source IDs alone never authorize a merge.
 
     Conflicting DOIs or volumes prevent title-based merging.
     Ambiguous title matches remain separate records.
@@ -264,18 +268,27 @@ def merge_springer_records(checkpoint, imported):
         if incoming_doi:
             matched_position = doi_index.get(incoming_doi)
 
-        # Title matching requires exactly one compatible candidate.
+        # Repeated imports can be recognized by their compatible origin
+        # even when title-only matching would be ambiguous.
         if matched_position is None and incoming_title:
+            candidates = title_index.get(incoming_title, [])
+
+            matched_position = find_unique_source_match(
+                records,
+                candidates,
+                incoming,
+            )
+
             compatible_positions = [
                 position
-                for position in title_index.get(incoming_title, [])
+                for position in candidates
                 if title_match_is_compatible(
                     records[position],
                     incoming,
                 )
             ]
 
-            if len(compatible_positions) == 1:
+            if matched_position is None and len(compatible_positions) == 1:
                 matched_position = compatible_positions[0]
 
         # No unique compatible match: preserve as a separate record.

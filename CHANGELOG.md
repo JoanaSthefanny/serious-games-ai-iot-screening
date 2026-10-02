@@ -22,8 +22,12 @@ Historical research results retain their recorded configuration identifiers. Sof
 - Recover volume from shared CSV/XLSX column aliases even when the database-specific column map omits it; preserve explicitly mapped values and fill only missing values without modifying the caller's map.
 - Preserve PubMed NBIB volume metadata from the `VI` tag; leave the field empty when the tag is unavailable.
 - Prevent title-based merging when both records have non-empty, different normalized DOIs.
-- Reuse the master-update deduplication rules when creating a master dataset, including DOI priority, unique compatible title matching, and recovery of missing metadata.
-- Match Springer checkpoint records by DOI first, then by a unique compatible normalized-title candidate; preserve separate records when title candidates have conflicting DOIs or volumes, or when the match is ambiguous.
+- Reuse the master-update deduplication rules when creating a master dataset, including DOI priority, unique compatible origin matching, unique compatible title matching, and recovery of missing metadata.
+- Match master-update and Springer checkpoint records by DOI first, then by a unique compatible origin candidate (`database` and `source_id`), then by a unique compatible normalized-title candidate; preserve separate records when no unique compatible match exists.
+- Prevent repeated imports with ambiguous titles from adding the same source records again when their origin and bibliographic metadata provide a unique compatible match.
+- Require matching normalized titles, compatible DOIs and volumes, and no conflicts in available year, publication, or author metadata for origin matching; never merge records solely because their source IDs match.
+- Treat database slugs and their public names as the same origin, while keeping source IDs scoped to their database.
+- Reuse the master-update origin-matching helper in Springer checkpoint reconciliation.
 - Preserve existing Springer abstracts and API checkpoint metadata while recovering missing bibliographic fields and registering recovered DOIs for subsequent matches.
 - Return the Springer enrichment dataset only after the current collection has been saved successfully, including newly imported records and previously recovered metadata.
 - Stop the complete Springer workflow before the master update and screening when enrichment fails, is interrupted, or returns an empty or invalid result, including when the API key is unavailable.
@@ -40,6 +44,11 @@ Historical research results retain their recorded configuration identifiers. Sof
 - Return the master dataset only after the master workbook and duplicate report have been saved successfully.
 - Stop the complete workflow before screening when the master update fails, is interrupted, or returns an empty or invalid result.
 - Stop on checkpoint write failures without converting successful classifications into API errors.
+- Refresh bibliographic fields in reusable screening results from the current master dataset, preserving eligibility assessments, evidence, decisions, rescue codes, API statuses, and recorded configuration.
+- Save refreshed screening bibliography even when no records remain pending, without making new Gemini calls for reusable results.
+- Preserve saved bibliographic values when their columns are absent from a legacy master; reflect current master values, including explicit empty values, when those columns are present.
+- Include volume metadata in newly generated screening results and recover it in reusable results when available in the master.
+- Continue invalidating screening results when screening metadata or configuration changes, and keep API errors eligible for retry.
 - Align screening package metadata with prompt v1.9 and classifier v1.11.
 - Declare `xlrd` for supported legacy `.xls` imports.
 - Correct documentation inconsistencies concerning screening rules, configuration identifiers, and historical results.
@@ -60,7 +69,7 @@ Historical research results retain their recorded configuration identifiers. Sof
 ### Added
 
 - English translation of screening prompt v1.9 for transparency, reproducibility, and accessibility, with a note identifying the Portuguese prompt as the version used for screening and explaining that translated prompts may produce different model responses.
-- An offline regression suite containing 41 tests, using synthetic records, temporary files, and mocked external operations.
+- An offline regression suite containing 81 tests, using synthetic records, temporary files, and mocked external operations.
 - Regression coverage for import safety, metadata recovery, Compendex parsing, volume preservation, master-dataset updates, checkpoint failures, and screening decision precedence.
 - Regression tests ensuring that records with the same title and different DOIs remain separate.
 - Springer regression tests covering conflicting DOIs, distinct volumes, ambiguous title matches, and metadata recovery through a unique compatible match.
@@ -72,6 +81,9 @@ Historical research results retain their recorded configuration identifiers. Sof
 - PubMed NBIB regression coverage for volume preservation, missing volumes, multiline abstracts, DOI extraction, URL construction, and deduplication.
 - BibTeX v2 regression coverage for rejected entries across all five BibTeX importers, Compendex-only copyright recovery, and preservation of existing outputs after a rejected import.
 - Master-creation regression coverage for missing or empty inputs, backups of both outputs, empty duplicate-report headers, temporary-file cleanup, and failures during report writing, backup creation, and either file replacement.
+- Thirteen additional regression tests in `tests/test_master_source_identity_regressions.py`, covering repeated ambiguous imports across all six databases, MASTER ID preservation, Excel round trips, origin compatibility, conflicting identifiers, metadata recovery, and DOI priority.
+- Thirteen additional regression tests in `tests/test_springer_source_identity_regressions.py`, covering repeated checkpoint merges, preservation of abstracts and API-specific columns, origin compatibility, recovered DOIs, and repeated saved enrichment runs without external API calls.
+- Fourteen additional regression tests in `tests/test_screening_bibliography_regressions.py`, covering refreshed bibliography, preservation of screening assessments, legacy columns, explicit empty values, invalidation rules, saved results with no pending articles, atomic-write failures, and refreshes before processing pending records.
 
 ### Planned
 
@@ -145,7 +157,6 @@ The documented IEEE calibration included:
 ```text
 Relevant records preserved: 11 / 11
 Automatically excluded relevant records: 0
-
 Manually non-relevant records:
 EXCLUDE:   19 / 22
 UNCERTAIN:  3 / 22
@@ -159,7 +170,6 @@ IEEE Xplore:         11 studies
 PubMed:               2 studies
 ACM Digital Library:  2 studies
 Total:               15 studies
-
 Preserved: 15 / 15
 Automatically excluded: 0
 ```
@@ -176,11 +186,9 @@ The original research execution processed:
 
 ```text
 Total records: 1,046
-
 RETAIN:     37
 UNCERTAIN: 141
 EXCLUDE:   868
-
 Safety rescues: 40
 Records without abstracts: 74
 Remaining technical errors: 0

@@ -15,6 +15,10 @@ results. The original workbook is backed up before removing results.
 
 New results include metadata and prompt fingerprints. Legacy results
 are checked using their recorded versions and stored metadata.
+
+Reusable results receive current bibliographic metadata from the master
+without changing their screening assessments. These updates are saved
+even when no articles remain pending.
 """
 
 from pathlib import Path
@@ -43,6 +47,18 @@ from screening import classifier as core
 
 
 PAUSE_BETWEEN_ARTICLES = 5
+
+BIBLIOGRAPHIC_RESULT_FIELDS = (
+    "source_id",
+    "title",
+    "authors",
+    "year",
+    "publication",
+    "volume",
+    "document_type",
+    "doi",
+    "url",
+)
 
 DATABASES = {
     "1": {
@@ -203,6 +219,7 @@ def base_result(article):
         "authors": safe_text(article.get("authors", "")),
         "year": safe_text(article.get("year", "")),
         "publication": safe_text(article.get("publication", "")),
+        "volume": safe_text(article.get("volume", "")),
         "document_type": safe_text(article.get("document_type", "")),
         "doi": safe_text(article.get("doi", "")),
         "url": safe_text(article.get("url", "")),
@@ -435,8 +452,49 @@ def checkpoint_result_is_valid(result, article, prompt_hash):
     return False
 
 
+def refresh_bibliographic_metadata(result, article):
+    """Refresh exported bibliography without modifying screening evidence.
+
+    The current master is authoritative for fields it contains, including
+    deliberate removals. Missing columns in legacy masters do not erase
+    previously saved values.
+    """
+    refreshed = result.copy()
+
+    for field in BIBLIOGRAPHIC_RESULT_FIELDS:
+        if field in article:
+            refreshed[field] = safe_text(article.get(field, ""))
+
+    return refreshed
+
+
+def reusable_bibliography_changed(checkpoint, results):
+    """Detect refreshed fields, including columns absent in old checkpoints."""
+    if checkpoint.empty or not results:
+        return False
+
+    latest = {
+        safe_text(result.get("master_id", "")): result
+        for result in checkpoint.to_dict(orient="records")
+    }
+
+    for result in results:
+        previous = latest.get(safe_text(result.get("master_id", "")), {})
+
+        for field in BIBLIOGRAPHIC_RESULT_FIELDS:
+            if field not in result:
+                continue
+
+            if field not in previous or safe_text(previous[field]) != safe_text(
+                result[field]
+            ):
+                return True
+
+    return False
+
+
 def reconcile_checkpoint(checkpoint, records):
-    """Returns only reusable results belonging to the current collection."""
+    """Return valid results with current bibliography and original assessments."""
 
     if checkpoint.empty or "master_id" not in checkpoint.columns:
         return []
@@ -466,6 +524,7 @@ def reconcile_checkpoint(checkpoint, records):
             article,
             prompt_hash,
         ):
+            result = refresh_bibliographic_metadata(result, article)
             result["master_id"] = master_id
             reusable.append(result)
 
@@ -806,6 +865,7 @@ def process_database(master, configuration, client):
     }
 
     discarded = len(checkpoint) - len(results)
+    bibliography_changed = reusable_bibliography_changed(checkpoint, results)
 
     if discarded:
         backup = create_checkpoint_backup(output_file)
@@ -816,12 +876,16 @@ def process_database(master, configuration, client):
         )
         print(f"Original checkpoint backed up: {backup}")
 
+    if discarded or bibliography_changed:
         save_checkpoint(
             results,
             output_file,
             database_name,
             total_records,
         )
+
+        if bibliography_changed:
+            print("Current master bibliography saved for reused results.")
 
     if total_records == 0:
         print("\nNo records were found for this database.")

@@ -22,7 +22,9 @@ from . import (
     MASTER_FILE,
     PROCESSED_DIR,
     normalize_doi,
+    normalize_header,
     normalize_title,
+    normalize_volume,
     read_table,
     resolve_database_source_file,
     safe_text,
@@ -144,6 +146,65 @@ def index_record(records, position, doi_index, title_index):
             positions.append(position)
 
 
+def normalize_database(value):
+    """Treat a database slug and its public name as the same origin."""
+    key = normalize_header(value)
+
+    for slug, name in DATABASE_NAMES.items():
+        if key in {normalize_header(slug), normalize_header(name)}:
+            return slug
+
+    return key
+
+
+def find_unique_source_match(records, positions, incoming):
+    """
+    Recognizes a previously imported record within title candidates.
+
+    Source IDs are scoped to their database and are never sufficient
+    alone. Require the same normalized title, compatible DOI and volume,
+    and no conflicts in available year, publication or author metadata.
+    Reused sequential IDs and multiple compatible origin candidates
+    must not arbitrarily select a record.
+    """
+    source_id = safe_text(incoming.get("source_id", ""))
+    database = normalize_database(incoming.get("database", ""))
+
+    if not source_id or not database:
+        return None
+
+    compatible = []
+
+    for position in positions:
+        existing = records[position]
+
+        if safe_text(existing.get("source_id", "")) != source_id:
+            continue
+
+        if normalize_database(existing.get("database", "")) != database:
+            continue
+
+        if not title_match_is_compatible(existing, incoming):
+            continue
+
+        # Be conservative when source IDs may have been regenerated.
+        conflicts = False
+
+        for field in ("year", "publication", "authors"):
+            normalizer = normalize_volume if field == "year" else normalize_title
+            current = normalizer(existing.get(field, ""))
+            new = normalizer(incoming.get(field, ""))
+
+            if current and new and current != new:
+                conflicts = True
+                break
+
+        if not conflicts:
+            compatible.append(position)
+
+    return compatible[0] if len(compatible) == 1 else None
+
+
 # ============================================================
 # FILL MISSING METADATA
 # ============================================================
@@ -209,8 +270,10 @@ def update_database(master, database):
     """
     Adds new records and fills missing metadata from duplicate records.
 
-    Matching uses DOI first, then a unique compatible title candidate.
-    Title matching respects DOI and volume compatibility.
+    Matching uses DOI first, then a unique compatible origin match
+    (database and source ID), then a unique compatible title candidate.
+    Origin matching also checks bibliographic compatibility; a source ID
+    alone never authorizes a merge.
 
     Returns:
         updated_master, duplicate_records, added_count
@@ -263,16 +326,27 @@ def update_database(master, database):
             duplicate_reason = "DOI"
 
         elif title_key and title_key in title_index:
+            candidates = title_index[title_key]
+
+            matched_position = find_unique_source_match(
+                records,
+                candidates,
+                record,
+            )
+
+            if matched_position is not None:
+                duplicate_reason = "SOURCE_ID"
+
             compatible = [
                 position
-                for position in title_index[title_key]
+                for position in candidates
                 if title_match_is_compatible(
                     records[position],
                     record,
                 )
             ]
 
-            if len(compatible) == 1:
+            if matched_position is None and len(compatible) == 1:
                 matched_position = compatible[0]
                 duplicate_reason = "TITLE"
 
