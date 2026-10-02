@@ -20,6 +20,9 @@ Historical research results retain their recorded configuration identifiers. Sof
 - Prevent title-based merging when both records have non-empty, different normalized DOIs.
 - Match Springer checkpoint records by DOI first, then by a unique compatible normalized-title candidate; preserve separate records when title candidates have conflicting DOIs or volumes, or when the match is ambiguous.
 - Preserve existing Springer abstracts and API checkpoint metadata while recovering missing bibliographic fields and registering recovered DOIs for subsequent matches.
+- Return the Springer enrichment dataset only after the current collection has been saved successfully, including newly imported records and previously recovered metadata.
+- Stop the complete Springer workflow before the master update and screening when enrichment fails, is interrupted, or returns an empty or invalid result, including when the API key is unavailable.
+- Prevent the complete workflow from silently using an outdated Springer enrichment file after an unsuccessful enrichment step.
 - Preserve existing processed outputs when an import produces no records.
 - Preserve empty-table columns during internal deduplication.
 - Recover missing bibliographic metadata from internal duplicates.
@@ -42,15 +45,18 @@ Historical research results retain their recorded configuration identifiers. Sof
 - Align the README and methodological documentation with the current prompt, classifier, and four implemented safety-rescue rules.
 - Distinguish the current implementation from the original research execution.
 - Clarify that the historical 15-study positive test includes the same 11 relevant IEEE studies plus two PubMed and two ACM studies.
+- Update workflow test fixtures to require a non-empty DataFrame from successful Springer enrichment instead of treating `None` as success.
 
 ### Added
 
 - English translation of screening prompt v1.9 for transparency, reproducibility, and accessibility, with a note identifying the Portuguese prompt as the version used for screening and explaining that translated prompts may produce different model responses.
-- An offline regression suite containing 23 tests, using synthetic records, temporary files, and mocked external operations.
+- An offline regression suite containing 27 tests, using synthetic records, temporary files, and mocked external operations.
 - Regression coverage for import safety, metadata recovery, Compendex parsing, volume preservation, master-dataset updates, checkpoint failures, and screening decision precedence.
 - Regression tests ensuring that records with the same title and different DOIs remain separate.
 - Springer regression tests covering conflicting DOIs, distinct volumes, ambiguous title matches, and metadata recovery through a unique compatible match.
 - Workflow regression tests ensuring that screening does not start after an invalid master-update result, a simulated write failure, or a user interruption, and that successful workflows continue for all six databases.
+- Springer workflow regression tests ensuring that invalid enrichment results, exceptions, interruptions, and missing API keys stop the workflow before the master update and screening.
+- Regression coverage verifying that Springer enrichment saves newly imported records together with an existing checkpoint, returns the saved collection, and preserves the previous checkpoint when atomic replacement fails.
 
 ### Planned
 

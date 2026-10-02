@@ -247,7 +247,7 @@ class ImportTests(unittest.TestCase):
             patch.object(
                 app,
                 "run_module",
-                side_effect=[records, None, records, None],
+                side_effect=[records, records, records, None],
             ) as run,
         ):
             app.run_complete_workflow()
@@ -435,7 +435,7 @@ class WorkflowMasterTests(unittest.TestCase):
                         expected.append(
                             "data_management.springer_metadata"
                         )
-                        returns.append(None)
+                        returns.append(records)
 
                     expected.append("data_management.update_master")
                     returns.append(result)
@@ -517,7 +517,7 @@ class WorkflowMasterTests(unittest.TestCase):
                     expected.append(
                         "data_management.springer_metadata"
                     )
-                    returns.append(None)
+                    returns.append(records)
 
                 expected.extend([
                     "data_management.update_master",
@@ -707,6 +707,100 @@ class DecisionTests(unittest.TestCase):
                 self.assertEqual(
                     (decision, code), (expected, rescue)
                 )
+
+
+class SpringerWorkflowTests(unittest.TestCase):
+    def test_invalid_enrichment_stops_before_master_and_screening(self):
+        records = pd.DataFrame({"title": ["New article"]})
+        for outcome in (None, pd.DataFrame(), False):
+            with self.subTest(outcome=type(outcome).__name__):
+                with (
+                    patch.object(app, "select_database", return_value=app.DATABASES["6"]),
+                    patch("builtins.input", return_value="y"),
+                    patch.object(app, "run_module", side_effect=[records, outcome]) as run,
+                ):
+                    app.run_complete_workflow()
+                self.assertEqual(
+                    [call.args[0] for call in run.call_args_list],
+                    ["importers.springer", "data_management.springer_metadata"],
+                )
+
+    def test_enrichment_exception_or_interrupt_stops_workflow(self):
+        records = pd.DataFrame({"title": ["New article"]})
+        for error in (OSError("Simulated write failure"), KeyboardInterrupt()):
+            with self.subTest(error=type(error).__name__):
+                enrich = Mock(side_effect=error)
+                update = Mock()
+                screen = Mock()
+                modules = {
+                    "importers.springer": SimpleNamespace(main=Mock(return_value=records)),
+                    "data_management.springer_metadata": SimpleNamespace(main=enrich),
+                    "data_management.update_master": SimpleNamespace(main=update),
+                    "screening.interactive_screening": SimpleNamespace(main=screen),
+                }
+                with (
+                    patch.object(app, "select_database", return_value=app.DATABASES["6"]),
+                    patch("builtins.input", return_value="y"),
+                    patch.object(app, "import_module", side_effect=lambda name: modules[name]),
+                ):
+                    app.run_complete_workflow()
+                enrich.assert_called_once_with()
+                update.assert_not_called()
+                screen.assert_not_called()
+
+    def test_main_saves_current_import_with_old_checkpoint_and_preserves_file_on_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / "springer_records_enriched.xlsx"
+            source = root / "springer_records.xlsx"
+            pd.DataFrame([dict(title="Old article", doi="10.1234/old", abstract="Old abstract")]).to_excel(output, index=False)
+            pd.DataFrame([dict(title="New article", doi="10.1234/new", abstract="New abstract")]).to_excel(source, index=False)
+            with (
+                patch.object(springer_metadata, "OUTPUT_FILE", output),
+                patch.object(springer_metadata, "resolve_springer_import_file", return_value=source),
+                patch.object(springer_metadata, "load_dotenv"),
+                patch.object(springer_metadata.os, "getenv", return_value="synthetic-key"),
+                patch.object(springer_metadata, "request_springer_metadata") as request,
+            ):
+                result = springer_metadata.main()
+                self.assertEqual(result.title.tolist(), ["Old article", "New article"])
+                self.assertEqual(pd.read_excel(output).title.tolist(), result.title.tolist())
+                request.assert_not_called()
+                original = output.read_bytes()
+                with patch.object(springer_metadata.os, "replace", side_effect=OSError("Simulated write failure")):
+                    with self.assertRaises(OSError):
+                        springer_metadata.main()
+                self.assertEqual(output.read_bytes(), original)
+                self.assertEqual(set(root.iterdir()), {output, source})
+
+    def test_missing_key_stops_workflow_and_preserves_old_checkpoint(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "springer_records_enriched.xlsx"
+            pd.DataFrame({"title": ["Old article"]}).to_excel(output, index=False)
+            original = output.read_bytes()
+            records = pd.DataFrame({"title": ["New article"]})
+            update = Mock()
+            screen = Mock()
+            modules = {
+                "importers.springer": SimpleNamespace(main=Mock(return_value=records)),
+                "data_management.springer_metadata": springer_metadata,
+                "data_management.update_master": SimpleNamespace(main=update),
+                "screening.interactive_screening": SimpleNamespace(main=screen),
+            }
+            with (
+                patch.object(app, "select_database", return_value=app.DATABASES["6"]),
+                patch("builtins.input", return_value="y"),
+                patch.object(app, "import_module", side_effect=lambda name: modules[name]),
+                patch.object(springer_metadata, "OUTPUT_FILE", output),
+                patch.object(springer_metadata, "load_dotenv"),
+                patch.object(springer_metadata.os, "getenv", return_value=None),
+                patch.object(springer_metadata, "save_checkpoint") as save,
+            ):
+                app.run_complete_workflow()
+            update.assert_not_called()
+            screen.assert_not_called()
+            save.assert_not_called()
+            self.assertEqual(output.read_bytes(), original)
 
 
 if __name__ == "__main__":

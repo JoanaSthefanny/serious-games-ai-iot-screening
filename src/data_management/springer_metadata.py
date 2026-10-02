@@ -632,6 +632,19 @@ def enrich_records(dataframe, api_key):
 # ============================================================
 
 def main():
+    """
+    Loads current imports, enriches metadata and saves the checkpoint.
+
+    Returns the resulting DataFrame only after it has been saved
+    successfully. This confirms that current imports have been
+    incorporated into the saved enrichment collection; it does not
+    mean that every abstract was retrieved.
+
+    Returns None when the API key or input files are unavailable.
+
+    Other read, processing and write failures propagate to the caller.
+    """
+
     print("=" * 70)
     print("SPRINGER METADATA ENRICHMENT")
     print("=" * 70)
@@ -643,24 +656,28 @@ def main():
     if not api_key:
         print("\nSPRINGER_API_KEY was not found.")
         print("Create a .env file based on .env.example.")
-        return
+        return None
 
     try:
         dataframe = load_springer_records()
 
     except FileNotFoundError as error:
         print(f"\n{error}")
-        return
+        return None
 
     enriched = enrich_records(
         dataframe,
         api_key,
     )
 
+    # Return success only after the current collection is saved.
+    # A write failure propagates before any success return.
     save_checkpoint(enriched)
 
     print("\nOutput file:")
     print(OUTPUT_FILE)
+
+    return enriched
 
 
 if __name__ == "__main__":

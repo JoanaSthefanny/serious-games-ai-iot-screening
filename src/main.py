@@ -256,7 +256,23 @@ def run_complete_workflow():
         print("STEP 2 - SPRINGER METADATA ENRICHMENT")
         print_separator()
 
-        run_module("data_management.springer_metadata")
+        enrichment_result = run_module(
+            "data_management.springer_metadata"
+        )
+
+        if (
+            not isinstance(enrichment_result, pd.DataFrame)
+            or enrichment_result.empty
+        ):
+            print(
+                "\nWorkflow stopped: Springer enrichment "
+                "did not return saved records."
+            )
+            print(
+                "Check the Springer configuration and "
+                "the error shown above before continuing."
+            )
+            return
 
     print()
     print_separator()

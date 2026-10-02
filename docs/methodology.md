@@ -356,7 +356,7 @@ UNCERTAIN
 
 instead.
 
-The current classifier implements exactly three rescues, evaluated in this order:
+The current classifier implements exactly four rescues, evaluated in this order:
 
 It does not confirm eligibility or automatically include the study.
 
