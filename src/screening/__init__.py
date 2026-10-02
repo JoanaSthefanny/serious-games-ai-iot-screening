@@ -10,8 +10,8 @@ The screening pipeline combines:
 """
 
 MODEL_NAME = "gemini-3.5-flash-lite"
-PROMPT_VERSION = "1.6"
-CLASSIFIER_VERSION = "1.8"
+PROMPT_VERSION = "1.9"
+CLASSIFIER_VERSION = "1.11"
 
 __all__ = [
     "MODEL_NAME",

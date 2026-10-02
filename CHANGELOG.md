@@ -17,11 +17,17 @@ Historical research results retain their recorded configuration identifiers. Sof
 - Recover Compendex BibTeX v2 entries rejected only for repeated copyright fields; stop the import on other rejected blocks.
 - Recover Compendex index terms from `key` and `note`.
 - Preserve volume metadata and avoid title-only merging when volume identifiers conflict or the match is ambiguous.
+- Prevent title-based merging when both records have non-empty, different normalized DOIs.
+- Match Springer checkpoint records by DOI first, then by a unique compatible normalized-title candidate; preserve separate records when title candidates have conflicting DOIs or volumes, or when the match is ambiguous.
+- Preserve existing Springer abstracts and API checkpoint metadata while recovering missing bibliographic fields and registering recovered DOIs for subsequent matches.
 - Preserve existing processed outputs when an import produces no records.
 - Preserve empty-table columns during internal deduplication.
 - Recover missing bibliographic metadata from internal duplicates.
 - Return imported records from all six importers and stop the complete workflow after a failed or empty import.
+- Return the master dataset only after the master workbook and duplicate report have been saved successfully.
+- Stop the complete workflow before screening when the master update fails, is interrupted, or returns an empty or invalid result.
 - Stop on checkpoint write failures without converting successful classifications into API errors.
+- Align screening package metadata with prompt v1.9 and classifier v1.11.
 - Declare `xlrd` for supported legacy `.xls` imports.
 - Correct documentation inconsistencies concerning screening rules, configuration identifiers, and historical results.
 
@@ -39,7 +45,12 @@ Historical research results retain their recorded configuration identifiers. Sof
 
 ### Added
 
-- Eight offline regression tests covering import safety, workflow gating, checkpoint failures, and decision precedence.
+- English translation of screening prompt v1.9 for transparency, reproducibility, and accessibility, with a note identifying the Portuguese prompt as the version used for screening and explaining that translated prompts may produce different model responses.
+- An offline regression suite containing 23 tests, using synthetic records, temporary files, and mocked external operations.
+- Regression coverage for import safety, metadata recovery, Compendex parsing, volume preservation, master-dataset updates, checkpoint failures, and screening decision precedence.
+- Regression tests ensuring that records with the same title and different DOIs remain separate.
+- Springer regression tests covering conflicting DOIs, distinct volumes, ambiguous title matches, and metadata recovery through a unique compatible match.
+- Workflow regression tests ensuring that screening does not start after an invalid master-update result, a simulated write failure, or a user interruption, and that successful workflows continue for all six databases.
 
 ### Planned
 
@@ -123,10 +134,10 @@ RETAIN:     0 / 22
 A multi-database positive test included:
 
 ```text
-IEEE Xplore:        11 studies
-PubMed:              2 studies
-ACM Digital Library: 2 studies
-Total:              15 studies
+IEEE Xplore:         11 studies
+PubMed:               2 studies
+ACM Digital Library:  2 studies
+Total:               15 studies
 
 Preserved: 15 / 15
 Automatically excluded: 0

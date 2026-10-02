@@ -60,7 +60,9 @@ FILLABLE_METADATA_FIELDS = [
 # ============================================================
 
 def create_master_backup():
-    """Creates a timestamped backup before updating the master."""
+    """
+    Creates a timestamped backup before updating the master.
+    """
 
     if not MASTER_FILE.exists():
         return None
@@ -81,7 +83,9 @@ def create_master_backup():
 # ============================================================
 
 def load_master():
-    """Loads the existing master or creates an empty DataFrame."""
+    """
+    Loads the existing master or creates an empty DataFrame.
+    """
 
     if not MASTER_FILE.exists():
         return pd.DataFrame(columns=CANONICAL_COLUMNS)
@@ -100,7 +104,9 @@ def load_master():
 # ============================================================
 
 def build_existing_indices(master):
-    """Builds DOI lookups and title-to-candidate-position lists."""
+    """
+    Builds DOI lookups and title-to-candidate-position lists.
+    """
 
     doi_index = {}
     title_index = {}
@@ -119,9 +125,12 @@ def build_existing_indices(master):
 
 
 def index_record(records, position, doi_index, title_index):
-    """Indexes a record already present in the in-memory list."""
+    """
+    Indexes a record already present in the in-memory list.
+    """
 
     record = records[position]
+
     doi_key = normalize_doi(record.get("doi", ""))
     title_key = normalize_title(record.get("title", ""))
 
@@ -130,6 +139,7 @@ def index_record(records, position, doi_index, title_index):
 
     if title_key:
         positions = title_index.setdefault(title_key, [])
+
         if position not in positions:
             positions.append(position)
 
@@ -158,8 +168,13 @@ def fill_missing_metadata(existing, incoming):
             filled_fields.append(column)
 
     if filled_fields:
-        incoming_source = safe_text(incoming.get("metadata_source", ""))
-        existing_source = safe_text(existing.get("metadata_source", ""))
+        incoming_source = safe_text(
+            incoming.get("metadata_source", "")
+        )
+
+        existing_source = safe_text(
+            existing.get("metadata_source", "")
+        )
 
         if incoming_source:
             sources = [
@@ -173,7 +188,9 @@ def fill_missing_metadata(existing, incoming):
 
             existing["metadata_source"] = " | ".join(sources)
 
-        incoming_status = safe_text(incoming.get("metadata_status", ""))
+        incoming_status = safe_text(
+            incoming.get("metadata_status", "")
+        )
 
         if incoming_status and (
             "abstract" in filled_fields
@@ -193,7 +210,10 @@ def update_database(master, database):
     Adds new records and fills missing metadata from duplicate records.
 
     Matching uses DOI first, then a unique compatible title candidate.
-    Conflicting volumes are preserved. Returns updated_master, duplicate_records, added_count.
+    Title matching respects DOI and volume compatibility.
+
+    Returns:
+        updated_master, duplicate_records, added_count
     """
 
     source_file = resolve_database_source_file(database)
@@ -231,6 +251,7 @@ def update_database(master, database):
 
     for _, row in new_records.iterrows():
         record = row.to_dict()
+
         doi_key = normalize_doi(record.get("doi", ""))
         title_key = normalize_title(record.get("title", ""))
 
@@ -243,23 +264,31 @@ def update_database(master, database):
 
         elif title_key and title_key in title_index:
             compatible = [
-                position for position in title_index[title_key]
-                if title_match_is_compatible(records[position], record)
+                position
+                for position in title_index[title_key]
+                if title_match_is_compatible(
+                    records[position],
+                    record,
+                )
             ]
+
             if len(compatible) == 1:
                 matched_position = compatible[0]
                 duplicate_reason = "TITLE"
 
         if matched_position is not None:
-            # This list includes both original and newly added records.
+            # Includes both original and newly added records.
             existing = records[matched_position]
 
-            filled_fields = fill_missing_metadata(existing, record)
+            filled_fields = fill_missing_metadata(
+                existing,
+                record,
+            )
 
             if filled_fields:
                 enriched_positions.add(matched_position)
 
-            # A DOI recovered through title matching must be indexed.
+            # Index a DOI recovered through title matching.
             index_record(
                 records,
                 matched_position,
@@ -268,18 +297,26 @@ def update_database(master, database):
             )
 
             duplicate_record = record.copy()
+
             duplicate_record["duplicate_reason"] = duplicate_reason
-            duplicate_record["fields_filled"] = "; ".join(filled_fields)
+            duplicate_record["fields_filled"] = "; ".join(
+                filled_fields
+            )
+
             duplicate_record["metadata_update_source"] = (
                 safe_text(record.get("metadata_source", ""))
-                if filled_fields else ""
+                if filled_fields
+                else ""
             )
+
             duplicate_record["_matched_position"] = matched_position
+
             duplicates.append(duplicate_record)
             continue
 
         # New MASTER IDs are assigned by this pipeline, not imported.
         record["master_id"] = ""
+
         records.append(record)
         added_count += 1
 
@@ -291,21 +328,30 @@ def update_database(master, database):
             title_index,
         )
 
-    updated_master = pd.DataFrame(records, columns=CANONICAL_COLUMNS)
+    updated_master = pd.DataFrame(
+        records,
+        columns=CANONICAL_COLUMNS,
+    )
+
     updated_master = assign_master_ids(updated_master)
     updated_master = updated_master[CANONICAL_COLUMNS]
 
-    # Resolve matched IDs after all new records have received IDs.
+    # Resolve matched IDs after new records have received IDs.
     for duplicate_record in duplicates:
-        matched_position = duplicate_record.pop("_matched_position")
+        matched_position = duplicate_record.pop(
+            "_matched_position"
+        )
+
         existing = updated_master.iloc[matched_position]
 
         duplicate_record["matched_master_id"] = safe_text(
             existing.get("master_id", "")
         )
+
         duplicate_record["matched_database"] = safe_text(
             existing.get("database", "")
         )
+
         duplicate_record["matched_title"] = safe_text(
             existing.get("title", "")
         )
@@ -323,7 +369,9 @@ def update_database(master, database):
 # ============================================================
 
 def choose_database():
-    """Used only when this module is executed directly."""
+    """
+    Used only when this module is executed directly.
+    """
 
     options = {
         "1": "ieee",
@@ -358,7 +406,16 @@ def choose_database():
 # ============================================================
 
 def main(database=None):
-    """Updates master_records.xlsx for one database or all databases."""
+    """
+    Updates master_records.xlsx for one database or all databases.
+
+    Returns the updated DataFrame only after the master and any
+    duplicate report have been saved successfully.
+
+    Returns None on cancellation.
+
+    Read, backup and write failures propagate to the caller.
+    """
 
     print("=" * 70)
     print("UPDATE MASTER DATASET")
@@ -369,29 +426,47 @@ def main(database=None):
 
         if database is None:
             print("\nOperation cancelled.")
-            return
+            return None
 
     database = str(database).strip().lower()
 
     if database != "all" and database not in DATABASE_ORDER:
-        raise ValueError(f"Unsupported database: {database}")
+        raise ValueError(
+            f"Unsupported database: {database}"
+        )
 
     master = load_master()
     master_before = len(master)
     backup = create_master_backup()
 
-    databases = DATABASE_ORDER if database == "all" else [database]
+    databases = (
+        DATABASE_ORDER
+        if database == "all"
+        else [database]
+    )
 
     all_duplicates = []
     total_added = 0
 
     for database_slug in databases:
-        master, duplicates, added = update_database(master, database_slug)
+        master, duplicates, added = update_database(
+            master,
+            database_slug,
+        )
+
         all_duplicates.extend(duplicates)
         total_added += added
 
-    MASTER_FILE.parent.mkdir(parents=True, exist_ok=True)
-    master.to_excel(MASTER_FILE, index=False)
+    MASTER_FILE.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    # Any write failure raises before the success return.
+    master.to_excel(
+        MASTER_FILE,
+        index=False,
+    )
 
     if all_duplicates:
         pd.DataFrame(all_duplicates).to_excel(
@@ -416,6 +491,9 @@ def main(database=None):
     if all_duplicates:
         print("\nDuplicate report:")
         print(DUPLICATES_REPORT)
+
+    # Return only after all required writes have succeeded.
+    return master
 
 
 if __name__ == "__main__":

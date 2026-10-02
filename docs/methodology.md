@@ -24,12 +24,14 @@ The screening process considers these four dimensions simultaneously.
 Studies are also assessed for exclusion criteria such as:
 
 - gamification without an actual serious game;
-- secondary studies;
-- systematic reviews;
-- mapping studies;
-- bibliometric analyses;
-- incomplete publications;
-- abstracts or posters without sufficient study information.
+- secondary studies, including systematic reviews, mapping studies, and bibliometric analyses;
+- protocols without a completed study;
+- explicitly incomplete publications;
+- abstracts, posters, editorials, or other publication types covered by the exclusion criteria.
+
+Evidence must refer to the study's own contribution. Technologies mentioned only in related work or as future possibilities do not establish their use in the current solution.
+
+Full-text eligibility, access requirements, and final inclusion decisions remain subject to human assessment.
 
 ---
 
@@ -96,15 +98,24 @@ Each database-specific importer attempts to recover the following metadata:
 - authors;
 - publication year;
 - publication venue;
+- volume;
 - document type;
 - DOI;
 - abstract;
 - keywords;
 - URL.
 
-Different databases expose these fields using different names and formats.
+The canonical schema also includes:
 
-The import layer therefore maps database-specific fields to a common canonical schema.
+- persistent master identifier;
+- metadata acquisition status;
+- metadata source.
+
+Different databases expose these fields using different names and formats. Database-specific fields are therefore mapped to a common canonical schema.
+
+Records without a title are removed during standardization.
+
+An import that produces no valid records preserves the existing processed output files. The complete workflow stops after a failed or empty import.
 
 ---
 
@@ -148,9 +159,13 @@ Examples include:
 - Uncontrolled Terms;
 - MeSH headings.
 
-When multiple keyword fields are available, their contents are combined rather than selecting only one field.
+The importers consolidate supported keyword fields into the canonical `keywords` field.
 
-This reduces the risk of losing terms related to AI, IoT, serious games, or health.
+For Engineering Village / Compendex BibTeX exports, the `key` and `note` fields are also interpreted as sources of index terms.
+
+This interpretation is specific to the Compendex export format. Administrative notes from other databases are not automatically treated as keywords.
+
+Keyword consolidation helps preserve terminology related to AI, IoT, serious games, and health.
 
 ---
 
@@ -160,21 +175,30 @@ Deduplication occurs at two levels.
 
 ### Internal deduplication
 
-Duplicates inside the same database export are detected using:
+Records within the imported collection for a database are compared using:
 
-1. normalized DOI, when available;
-2. normalized title when DOI is unavailable.
+1. normalized DOI;
+2. a unique normalized-title candidate with compatible volume information when no DOI match is found.
 
-### Cross-database deduplication
+Conflicting nonempty volume identifiers prevent title-based merging. Multiple compatible title candidates are treated as ambiguous and preserved separately.
 
-When records are incorporated into the master dataset, records already present from another database are detected using the same priority:
+The first retained record preserves its identity and populated bibliographic fields. Missing fields can be filled from a duplicate record.
 
-1. DOI;
-2. normalized title.
+A DOI recovered during this process is indexed for subsequent duplicate checks.
 
-The first occurrence is preserved in the master dataset.
 
-Records identified as duplicates are documented separately rather than silently discarded.
+### Master-dataset deduplication
+
+Incoming records are compared against the existing master dataset and records added earlier in the same update.
+
+The matching priority is:
+
+1. normalized DOI;
+2. a unique normalized-title candidate with compatible volume information when no DOI match is found.
+
+The existing record preserves its MASTER ID, source ID, original database, and populated bibliographic values. Missing bibliographic metadata can be filled from an incoming duplicate.
+
+Duplicate records are documented in separate reports rather than silently discarded.
 
 ---
 
@@ -191,9 +215,12 @@ MASTER-0003
 ...
 ```
 
-Existing identifiers are never reassigned during subsequent updates.
+Existing identifiers are preserved during subsequent updates. New identifiers are assigned to records without a MASTER ID.
 
 This allows screening results and manual decisions to remain traceable even when new database records are added later.
+
+A timestamped backup is created before updating an existing master workbook.
+
 
 ---
 
@@ -205,24 +232,28 @@ When possible, missing metadata was supplemented through the Springer Nature Met
 
 The enrichment stage:
 
+- combines the current import with an existing enrichment checkpoint;
+- preserves previously recovered metadata and API status columns;
 - preserves existing abstracts;
 - attempts DOI-based metadata retrieval;
-- stores API status;
+- stores API status and error information;
 - saves checkpoints during execution;
-- does not interpret API failure as an exclusion criterion.
+- does not interpret API failure as an eligibility exclusion.
 
 Records for which an abstract remains unavailable are preserved for manual review.
+
+Enrichment checkpoints are written to a temporary workbook and replaced atomically after the write completes.
 
 ---
 
 ## LLM-Assisted Screening
 
-The screening pipeline uses:
+The current screening implementation is configured with:
 
 ```text
 Model: gemini-3.5-flash-lite
-Prompt version: 1.7
-Classifier version: 1.10
+Prompt version: 1.9
+Classifier version: 1.11
 ```
 
 The LLM does **not** directly make the final inclusion or exclusion decision.
@@ -233,70 +264,81 @@ Its role is to classify evidence available in:
 - abstract;
 - keywords.
 
-The LLM evaluates:
+The structured response evaluates six fields:
 
-1. serious game;
-2. gamification only;
-3. health context;
-4. artificial intelligence;
-5. Internet of Things;
-6. secondary or incomplete study status.
+| Field | Allowed values |
+|---|---|
+| `serious_game` | `YES`, `NO`, `UNCERTAIN` |
+| `gamification_only` | `YES`, `NO`, `UNCERTAIN` |
+| `health` | `YES`, `NO`, `UNCERTAIN` |
+| `ai` | `YES`, `NO`, `UNCERTAIN` |
+| `iot` | `EXPLICIT_IOT`, `FUNCTIONALLY_COMPATIBLE`, `NO`, `UNCERTAIN` |
+| `secondary_or_incomplete` | `YES`, `NO`, `UNCERTAIN` |
 
-Structured output is required so that the subsequent decision stage can be handled deterministically in Python.
+Each field has an accompanying evidence explanation. An additional `notes` field records relevant observations.
+
+The response is validated against the `ScreeningAssessment` schema before deterministic rules are applied.
+
+---
+
+### AI evidence and uncertainty
+
+A positive AI classification requires evidence of an AI technique used in the study's own solution.
+
+An analytical function whose method is omitted can support `UNCERTAIN`. Examples include classification, prediction, recognition, adaptation, or computational assessment of therapeutic performance from acquired data.
+
+Sensors, monitoring, an IDE, EMG, or Arduino alone do not establish AI.
+
+The absence of the term “AI” does not, by itself, resolve an ambiguous analytical function. Conversely, explicitly described fixed rules or conventional calculations without another AI component can support `NO`.
+
+### Secondary or incomplete studies
+
+A positive `secondary_or_incomplete` classification requires supporting evidence of a secondary study, an excluded publication type, or an explicitly incomplete contribution.
+
+An overview of the authors' own system does not, by itself, establish that the publication is a review.
+
+The absence of experimental details in the abstract does not, by itself, establish that the publication is incomplete.
 
 ---
 
 ## Separation Between Evidence Classification and Decision
 
-The pipeline deliberately separates:
+The pipeline separates two responsibilities:
 
-```text
-LLM interpretation
-```
+1. the LLM interprets the evidence and produces structured classifications;
+2. Python applies predefined deterministic decision rules.
 
-from:
+This design reduces dependence on unconstrained natural-language decisions and improves auditability.
 
-```text
-screening decision
-```
-
-The LLM produces structured evidence classifications.
-
-Python then applies predefined deterministic rules.
-
-This design reduces the dependence of the final decision on unconstrained natural-language model output and improves auditability.
+It does not eliminate errors in evidence interpretation. Human review remains necessary.
 
 ---
 
 ## Conservative Screening Strategy
 
-The screening stage was designed to prioritize sensitivity.
+The screening stage is designed to prioritize sensitivity.
 
-A record is automatically excluded only when the available metadata provides sufficient evidence that an eligibility criterion is not satisfied.
+The deterministic rules operate on the LLM's classifications and calibrated lexical signals.
 
-When the evidence is incomplete or ambiguous and no earlier exclusion rule applies, the record is assigned:
+A negative core criterion can lead to `EXCLUDE` unless a preceding contradiction rule or safety-rescue rule applies.
 
-```text
-UNCERTAIN
-```
-
-and remains available for human review.
-
-Therefore:
-
-```text
-RETAIN
-```
-
-does not mean definitive inclusion.
-
-Likewise:
+When no earlier exclusion rule applies and at least one criterion remains unresolved, the record is assigned:
 
 ```text
 UNCERTAIN
 ```
 
-is not an exclusion.
+The three outcomes have the following meanings:
+
+| Outcome | Meaning |
+|---|---|
+| `RETAIN` | Metadata supports the required criteria; the record proceeds to subsequent assessment. |
+| `UNCERTAIN` | Unresolved evidence, contradictory labels, a safety rescue, or missing abstract requires human review. |
+| `EXCLUDE` | The deterministic rules identify an exclusion condition from the available classifications. |
+
+`RETAIN` does not mean definitive inclusion.
+
+`UNCERTAIN` is not an exclusion.
 
 Both categories are preserved for subsequent assessment.
 
@@ -316,59 +358,129 @@ instead.
 
 The current classifier implements exactly three rescues, evaluated in this order:
 
+It does not confirm eligibility or automatically include the study.
+
+The current classifier implements four rescues, evaluated in this order:
+
 | Code | Required conditions |
 |---|---|
-| `RESGATE_IOT_3_DE_4` | Serious game, health and AI are `YES`; IoT is `NO`; an acquisition or monitoring signal is present. |
+| `RESGATE_IOT_3_DE_4` | Serious game, health, and AI are `YES`; IoT is `NO`; an acquisition or monitoring signal is present. |
 | `RESGATE_MULTIMODAL` | Health and AI are `YES`; serious game or IoT is `NO`; both interaction and acquisition signals are present. |
-| `RESGATE_AAL_ESTIMULACAO` | Serious game is `NO`; health is `YES`; IoT is `EXPLICIT_IOT` or `FUNCTIONALLY_COMPATIBLE`; AI is `YES` or `UNCERTAIN`; both stimulation and assistive-platform signals are present. |
+| `RESGATE_AAL_ESTIMULACAO` | Serious game is `NO`; health is `YES`; AI is `YES` or `UNCERTAIN`; IoT is `EXPLICIT_IOT` or `FUNCTIONALLY_COMPATIBLE`; both stimulation and assistive-platform signals are present. |
+| `RESGATE_AAL_METADADOS_INCOMPLETOS` | Study type and gamification-only are `NO`; serious game is `NO`; health is `YES`; AI is `NO` with a justification indicating metadata omission; IoT is `EXPLICIT_IOT`, `FUNCTIONALLY_COMPATIBLE`, or `UNCERTAIN`; acquisition, assistive-platform, and cognitive or physical stimulation signals are present. |
 
-Signals are lexical matches in title, abstract and keywords against the `CALIBRATED_*_TERMS` lists in `src/screening/classifier.py`.
+The first three rescues are evaluated after the contradiction, secondary-study, and gamification-only rules. The fourth rescue additionally requires both `secondary_or_incomplete` and `gamification_only` to be `NO`.
 
-Decision order: contradictory game/gamification labels → secondary or incomplete study → gamification only → the three rescues above → negative core criteria → uncertain labels → retention.
+### Lexical signals
 
-When `serious_game = YES` and `gamification_only = YES`, the result is `UNCERTAIN` with an empty rescue code. This contradiction is checked before study type.
+Acquisition, interaction, stimulation, and assistive-platform signals are matched in title, abstract, and keywords using the `CALIBRATED_*_TERMS` lists in:
 
-An uncertain label does not prevent exclusion by another negative core criterion when no rescue applies. There is no generic three-of-four rescue and no independent game, health or AI terminology rescue.
+```text
+src/screening/classifier.py
+```
 
-Safety rescue is deliberately conservative: it does not automatically include a study.
+The fourth rescue also uses:
 
-It prevents automatic exclusion and routes the study to human review.
+```text
+ai_negative_is_metadata_omission()
+aal_stimulation_review_signal()
+```
+
+`ai_negative_is_metadata_omission()` examines the AI justification for omission cues. Explicit descriptions of absent AI or conventional-only methods block this rescue.
+
+Its free-text checks can miss paraphrases. They are review cues, not evidence that AI is present.
+
+`aal_stimulation_review_signal()` checks calibrated stimulation phrases or stimulation terminology in a cognitive or physical context.
+
+### Decision precedence
+
+The deterministic decision order is:
+
+1. contradictory serious-game and gamification-only labels;
+2. secondary or incomplete study;
+3. gamification only;
+4. the four safety rescues, in the order listed above;
+5. negative core criteria;
+6. unresolved labels;
+7. retention.
+
+When:
+
+```text
+serious_game = YES
+gamification_only = YES
+```
+
+the result is `UNCERTAIN` with an empty rescue code. This contradiction is checked before study type.
+
+An uncertain label does not prevent exclusion by another negative core criterion when no rescue applies.
+
+There is no generic three-of-four rescue and no independent game, health, or AI terminology rescue.
+
+Safety rescues preserve the original criterion labels. They change the screening outcome to `UNCERTAIN` and record the applicable rescue code.
 
 ---
 
 ## Records Without Abstracts
 
-Records without abstracts are not automatically excluded.
+Records without abstracts are not sent to Gemini for classification.
 
 They receive:
 
 ```text
-UNCERTAIN
+decision = UNCERTAIN
+api_status = NO_ABSTRACT
 ```
 
-because the absence of metadata is not evidence that an eligibility criterion is absent.
+Their eligibility fields are recorded as:
+
+```text
+NOT_EVALUATED
+```
+
+`NOT_EVALUATED` is an output placeholder for unassessed records. It is not an allowed classification returned by the LLM schema.
 
 These records require manual assessment or retrieval of additional information.
+
+If an abstract becomes available later, the previous missing-abstract result is invalidated and the record becomes eligible for automated analysis.
 
 ---
 
 ## Checkpointing
 
-Screening results are saved incrementally.
+Screening results are saved incrementally in database-specific workbooks.
 
-Records with successful classifications or records intentionally routed to manual review due to missing abstracts are considered completed.
+New results record:
 
-Technical API failures are not treated as screening decisions.
+- model identifier;
+- prompt version;
+- classifier version;
+- prompt-content fingerprint;
+- metadata fingerprint.
 
-If processing is interrupted because of:
+The metadata fingerprint covers the title, abstract, and keywords used for screening.
 
-- API quota exhaustion;
-- service unavailability;
-- authentication failure;
+### Resuming execution
 
-the available results remain saved.
+Results with `SUCCESS` or `NO_ABSTRACT` status are reused only when their configuration, metadata, and completion status remain compatible with the current record.
 
-When execution resumes, previously completed records are skipped.
+A successful classification is therefore not skipped unconditionally.
+
+Changes to screening metadata, prompt content, model, or version identifiers can invalidate a saved result.
+
+Legacy results without fingerprints are checked using their stored metadata and recorded configuration versions.
+
+`API_ERROR` records remain pending and are retried during a subsequent execution.
+
+Results that no longer belong to the current collection, or fail validation, are removed from the active results. The original workbook is backed up before this reconciliation is saved.
+
+### Write failures
+
+Screening checkpoints are written to a temporary workbook and replaced atomically after all sheets have been written and closed.
+
+A checkpoint write failure stops processing. It is not converted into an API error or an eligibility exclusion.
+
+When API quota exhaustion, service unavailability, or authentication failure interrupts processing, successfully saved results remain available for resumption.
 
 ---
 
@@ -380,8 +492,10 @@ Human assessment remains necessary for:
 
 - uncertain records;
 - records without abstracts;
+- ambiguous bibliographic identities;
 - full-text eligibility assessment;
-- resolution of ambiguous evidence;
+- resolution of contradictory evidence;
+- verification of automated classifications;
 - final inclusion and exclusion decisions.
 
 The automated stage therefore functions as a conservative prioritization mechanism within a human-supervised evidence synthesis workflow.
@@ -401,16 +515,49 @@ The repository documents:
 - metadata schema;
 - calibration procedure.
 
-The Portuguese prompt stored in:
+The current operational Portuguese prompt is stored in:
 
 ```text
-prompts/screening_prompt_v1_7_pt.txt
+prompts/screening_prompt_v1_9_pt.txt
 ```
 
-is the authoritative prompt associated with the screening implementation.
+Prompt loading is controlled by:
 
-The English prompt file is provided for documentation and readability.
+```text
+src/screening/classifier.py
+```
+
+The loader uses the external prompt when the file exists and contains text. Otherwise, it uses the embedded `DEFAULT_PROMPT`.
+
+The external prompt and embedded fallback should remain consistent.
+
+An English translation, when provided, is documentation material. It does not change the operational prompt unless the classifier is explicitly configured to load it.
+
+Public software releases, screening prompts, and deterministic classifiers have separate version identifiers.
+
+Changes to the prompt or decision rules should be accompanied by updated version identifiers. Historical outputs must retain their original recorded configuration.
+
+---
 
 ## Historical Results
 
-Historical results were produced by the original research scripts. Their recorded version identifiers are preserved. The current public implementation uses prompt v1.7 and classifier v1.10; the historical results do not constitute a new Gemini execution with this configuration.
+Historical research results were produced by the original research scripts.
+
+Their counts and recorded configuration identifiers are preserved. They do not represent a complete rerun with the current public implementation:
+
+```text
+Prompt version: 1.9
+Classifier version: 1.11
+```
+
+The historical results and calibration material are described in:
+
+```text
+README.md
+docs/calibration.md
+CHANGELOG.md
+```
+
+Records used to develop or tune the classifier constitute development or calibration material. Performance on those records must not be interpreted as independent external validation.
+
+The current configuration must not be assigned retrospectively to historical outputs.

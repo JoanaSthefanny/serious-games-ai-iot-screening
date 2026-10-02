@@ -45,7 +45,6 @@ DATABASE_ORDER = [
     "springer",
 ]
 
-
 DATABASE_NAMES = {
     "ieee": "IEEE Xplore",
     "pubmed": "PubMed",
@@ -65,7 +64,6 @@ DATABASE_NAMES = {
 # ============================================================
 
 SOURCE_FILE_CANDIDATES = {
-
     "ieee": [
         "ieee_records.xlsx",
         "ieee_records_new.xlsx",
@@ -73,36 +71,30 @@ SOURCE_FILE_CANDIDATES = {
         "ieee_registros_novos.xlsx",
         "ieee_registros_unicos.xlsx",
     ],
-
     "pubmed": [
         "pubmed_records.xlsx",
         "pubmed_records_new.xlsx",
         "pubmed_registros_novos.xlsx",
     ],
-
     "acm": [
         "acm_records.xlsx",
         "acm_records_new.xlsx",
         "acm_registros_novos.xlsx",
     ],
-
     "scopus": [
         "scopus_records.xlsx",
         "scopus_records_new.xlsx",
         "scopus_registros_novos.xlsx",
     ],
-
     "compendex": [
         "compendex_records.xlsx",
         "compendex_records_new.xlsx",
         "compendex_registros_novos.xlsx",
     ],
-
     "springer": [
         # Enriched files receive priority.
         "springer_records_enriched.xlsx",
         "springer_registros_enriquecidos.xlsx",
-
         "springer_records.xlsx",
         "springer_records_new.xlsx",
         "springer_registros_novos.xlsx",
@@ -141,13 +133,11 @@ CANONICAL_COLUMNS = [
 # ============================================================
 
 COLUMN_ALIASES = {
-
     "master_id": [
         "master_id",
         "master id",
         "master-id",
     ],
-
     "source_id": [
         "source_id",
         "source id",
@@ -157,34 +147,29 @@ COLUMN_ALIASES = {
         "record_id",
         "record id",
     ],
-
     "database": [
         "database",
         "base",
         "source_database",
         "source database",
     ],
-
     "title": [
         "title",
         "titulo",
         "título",
     ],
-
     "authors": [
         "authors",
         "author",
         "autores",
         "autor",
     ],
-
     "year": [
         "year",
         "ano",
         "publication_year",
         "publication year",
     ],
-
     "publication": [
         "publication",
         "journal",
@@ -193,7 +178,6 @@ COLUMN_ALIASES = {
         "publicacao",
         "publicação",
     ],
-
     "document_type": [
         "document_type",
         "document type",
@@ -203,17 +187,14 @@ COLUMN_ALIASES = {
         "tipo documento",
         "tipo",
     ],
-
     "doi": [
         "doi",
     ],
-
     "abstract": [
         "abstract",
         "abstract_api",
         "resumo",
     ],
-
     "keywords": [
         "keywords",
         "keywords_api",
@@ -222,14 +203,12 @@ COLUMN_ALIASES = {
         "palavras-chave",
         "palavras chave",
     ],
-
     "url": [
         "url",
         "link",
         "article_url",
         "article url",
     ],
-
     "metadata_status": [
         "metadata_status",
         "metadata status",
@@ -237,7 +216,6 @@ COLUMN_ALIASES = {
         "status metadata",
         "status_api",
     ],
-
     "metadata_source": [
         "metadata_source",
         "metadata source",
@@ -416,7 +394,6 @@ def standardize_dataframe(
     )
 
     for canonical_column in CANONICAL_COLUMNS:
-
         aliases = COLUMN_ALIASES.get(
             canonical_column,
             [canonical_column],
@@ -441,7 +418,6 @@ def standardize_dataframe(
         )
 
         for candidate in candidate_columns:
-
             candidate_values = (
                 df[candidate]
                 .fillna("")
@@ -468,7 +444,6 @@ def standardize_dataframe(
         ] = combined
 
     if database:
-
         database_name = DATABASE_NAMES.get(
             database,
             database,
@@ -514,7 +489,7 @@ def standardize_dataframe(
         .str.strip()
     )
 
-    # Remove completely empty records.
+    # Remove records without a title.
     result = result[
         result["title"].str.strip() != ""
     ].copy()
@@ -547,13 +522,11 @@ def read_table(file_path):
         ".xlsx",
         ".xls",
     }:
-
         return pd.read_excel(
             file_path
         )
 
     if suffix == ".csv":
-
         return pd.read_csv(
             file_path
         )
@@ -587,21 +560,17 @@ def write_table(
     )
 
     if suffix == ".xlsx":
-
         dataframe.to_excel(
             file_path,
             index=False,
         )
-
         return
 
     if suffix == ".csv":
-
         dataframe.to_csv(
             file_path,
             index=False,
         )
-
         return
 
     raise ValueError(
@@ -623,7 +592,6 @@ def resolve_database_source_file(
     ensure_project_directories()
 
     if database not in SOURCE_FILE_CANDIDATES:
-
         raise ValueError(
             f"Unknown database: {database}"
         )
@@ -631,14 +599,12 @@ def resolve_database_source_file(
     for filename in SOURCE_FILE_CANDIDATES[
         database
     ]:
-
         candidate = (
             PROCESSED_DIR
             / filename
         )
 
         if candidate.exists():
-
             return candidate
 
     return None
@@ -673,27 +639,89 @@ def build_title_key(
 # Initialize directories when the package is imported.
 ensure_project_directories()
 
+
+# ============================================================
+# TITLE MATCH COMPATIBILITY
+# ============================================================
+
 def normalize_volume(value):
-    """Compare volume identifiers consistently after Excel round trips."""
+    """
+    Compare volume identifiers consistently after Excel round trips.
+    """
+
     value = safe_text(value).casefold()
-    value = re.sub(r"^(\d+)\.0$", r"\1", value)
+
+    value = re.sub(
+        r"^(\d+)\.0$",
+        r"\1",
+        value,
+    )
+
     return " ".join(value.split())
 
 
 def title_match_is_compatible(existing, incoming):
-    """Do not merge a title match with conflicting volume evidence."""
-    if not normalize_title(existing.get("title", "")):
+    """
+    Allows title-based matching only when titles match and
+    available DOI and volume identifiers do not conflict.
+    """
+
+    existing_title = normalize_title(
+        existing.get("title", "")
+    )
+
+    incoming_title = normalize_title(
+        incoming.get("title", "")
+    )
+
+    if not existing_title or existing_title != incoming_title:
         return False
-    if normalize_title(existing.get("title", "")) != normalize_title(incoming.get("title", "")):
+
+    # Different nonempty DOIs prevent title-based merging.
+    existing_doi = normalize_doi(
+        existing.get("doi", "")
+    )
+
+    incoming_doi = normalize_doi(
+        incoming.get("doi", "")
+    )
+
+    if (
+        existing_doi
+        and incoming_doi
+        and existing_doi != incoming_doi
+    ):
         return False
-    left = normalize_volume(existing.get("volume", ""))
-    right = normalize_volume(incoming.get("volume", ""))
-    if left and right and left != right:
+
+    # Different nonempty volumes prevent title-based merging.
+    existing_volume = normalize_volume(
+        existing.get("volume", "")
+    )
+
+    incoming_volume = normalize_volume(
+        incoming.get("volume", "")
+    )
+
+    if (
+        existing_volume
+        and incoming_volume
+        and existing_volume != incoming_volume
+    ):
         return False
+
     return True
 
 
 def find_unique_title_match(candidates, incoming):
-    """Ambiguous title matches are preserved rather than arbitrarily merged."""
-    compatible = [record for record in candidates if title_match_is_compatible(record, incoming)]
+    """
+    Ambiguous title matches are preserved rather than arbitrarily merged.
+    """
+
+    compatible = [
+        record
+        for record in candidates
+        if title_match_is_compatible(record, incoming)
+    ]
+
     return compatible[0] if len(compatible) == 1 else None
+    

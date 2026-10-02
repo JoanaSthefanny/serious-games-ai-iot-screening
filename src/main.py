@@ -5,17 +5,8 @@ import sys
 import pandas as pd
 
 
-# ============================================================
-# PROJECT INFORMATION
-# ============================================================
-
 PROJECT_NAME = "Serious Games AI-IoT Screening"
 PROJECT_VERSION = "1.0.0"
-
-
-# ============================================================
-# DATABASE CONFIGURATION
-# ============================================================
 
 DATABASES = {
     "1": {
@@ -50,64 +41,30 @@ DATABASES = {
     },
 }
 
-
-# ============================================================
-# PATH CONFIGURATION
-# ============================================================
-
 SRC_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SRC_DIR.parent
 
-
-# Make sure modules inside src/ can be imported correctly.
 if str(SRC_DIR) not in sys.path:
-    sys.path.insert(
-        0,
-        str(SRC_DIR),
-    )
+    sys.path.insert(0, str(SRC_DIR))
 
-
-# ============================================================
-# DISPLAY HELPERS
-# ============================================================
 
 def print_separator():
-    print(
-        "=" * 70
-    )
+    print("=" * 70)
 
 
 def print_header():
     print()
     print_separator()
-
-    print(
-        PROJECT_NAME.upper()
-    )
-
+    print(PROJECT_NAME.upper())
     print_separator()
-
-    print(
-        f"\nVersion: {PROJECT_VERSION}"
-    )
+    print(f"\nVersion: {PROJECT_VERSION}")
 
 
 def pause():
-    input(
-        "\nPress Enter to continue..."
-    )
+    input("\nPress Enter to continue...")
 
 
-# ============================================================
-# MODULE EXECUTION
-# ============================================================
-
-def run_module(
-    module_path,
-    function_name="main",
-    *args,
-    **kwargs,
-):
+def run_module(module_path, function_name="main", *args, **kwargs):
     """
     Dynamically imports a module and executes one of its functions.
 
@@ -115,176 +72,81 @@ def run_module(
     the entire program from failing when an optional module has not
     yet been installed or created.
     """
-
     try:
-
-        module = import_module(
-            module_path
-        )
+        module = import_module(module_path)
 
     except ModuleNotFoundError as error:
-
-        print(
-            "\nModule not available:"
-        )
-
-        print(
-            f"  {module_path}"
-        )
-
+        print("\nModule not available:")
+        print(f"  {module_path}")
         print(
             "\nThis component has not been added "
             "to the repository yet."
         )
-
-        print(
-            f"\nTechnical details: {error}"
-        )
-
+        print(f"\nTechnical details: {error}")
         return None
 
     except Exception as error:
-
-        print(
-            "\nAn error occurred while importing the module:"
-        )
-
-        print(
-            f"  {module_path}"
-        )
-
-        print(
-            f"\nTechnical details: {error}"
-        )
-
+        print("\nAn error occurred while importing the module:")
+        print(f"  {module_path}")
+        print(f"\nTechnical details: {error}")
         return None
 
-    function = getattr(
-        module,
-        function_name,
-        None,
-    )
+    function = getattr(module, function_name, None)
 
     if function is None:
-
-        print(
-            "\nThe requested function was not found."
-        )
-
-        print(
-            f"Module: {module_path}"
-        )
-
-        print(
-            f"Function: {function_name}"
-        )
-
+        print("\nThe requested function was not found.")
+        print(f"Module: {module_path}")
+        print(f"Function: {function_name}")
         return None
 
     try:
-
-        return function(
-            *args,
-            **kwargs,
-        )
+        return function(*args, **kwargs)
 
     except KeyboardInterrupt:
-
-        print(
-            "\n\nOperation interrupted by the user."
-        )
-
+        print("\n\nOperation interrupted by the user.")
         return None
 
     except Exception as error:
-
-        print(
-            "\nAn unexpected error occurred:"
-        )
-
-        print(
-            error
-        )
-
+        print("\nAn unexpected error occurred:")
+        print(error)
         return None
 
 
-# ============================================================
-# DATABASE MENU
-# ============================================================
-
-def show_database_menu(
-    allow_all=False,
-):
-    print(
-        "\nSelect a database:"
-    )
-
+def show_database_menu(allow_all=False):
+    print("\nSelect a database:")
     print()
 
     for key, database in DATABASES.items():
-
-        print(
-            f"{database['name']:<35} [{key}]"
-        )
+        print(f"{database['name']:<35} [{key}]")
 
     if allow_all:
+        print(f"{'All databases':<35} [7]")
 
-        print(
-            f"{'All databases':<35} [7]"
-        )
-
-    print(
-        f"{'Back':<35} [0]"
-    )
+    print(f"{'Back':<35} [0]")
 
 
-def select_database(
-    allow_all=False,
-):
+def select_database(allow_all=False):
     while True:
+        show_database_menu(allow_all=allow_all)
 
-        show_database_menu(
-            allow_all=allow_all
-        )
-
-        choice = input(
-            "\nEnter an option: "
-        ).strip()
+        choice = input("\nEnter an option: ").strip()
 
         if choice == "0":
             return None
 
-        if (
-            allow_all
-            and choice == "7"
-        ):
-
+        if allow_all and choice == "7":
             return "all"
 
         if choice in DATABASES:
+            return DATABASES[choice]
 
-            return DATABASES[
-                choice
-            ]
+        print("\nInvalid option.")
 
-        print(
-            "\nInvalid option."
-        )
-
-
-# ============================================================
-# IMPORT RECORDS
-# ============================================================
 
 def import_records():
     print()
     print_separator()
-
-    print(
-        "IMPORT RECORDS"
-    )
-
+    print("IMPORT RECORDS")
     print_separator()
 
     database = select_database()
@@ -292,75 +154,43 @@ def import_records():
     if database is None:
         return
 
-    print(
-        f"\nSelected database: "
-        f"{database['name']}"
-    )
+    print(f"\nSelected database: {database['name']}")
 
-    run_module(
-        database[
-            "import_module"
-        ]
-    )
+    run_module(database["import_module"])
 
-
-# ============================================================
-# UPDATE MASTER DATASET
-# ============================================================
 
 def update_master_dataset():
     print()
     print_separator()
-
-    print(
-        "UPDATE MASTER DATASET"
-    )
-
+    print("UPDATE MASTER DATASET")
     print_separator()
 
-    database = select_database(
-        allow_all=True
-    )
+    database = select_database(allow_all=True)
 
     if database is None:
         return
 
     if database == "all":
-
         run_module(
             "data_management.update_master",
             "main",
             database="all",
         )
-
         return
 
-    print(
-        f"\nSelected database: "
-        f"{database['name']}"
-    )
+    print(f"\nSelected database: {database['name']}")
 
     run_module(
         "data_management.update_master",
         "main",
-        database=database[
-            "slug"
-        ],
+        database=database["slug"],
     )
 
-
-# ============================================================
-# SPRINGER METADATA ENRICHMENT
-# ============================================================
 
 def enrich_springer_metadata():
     print()
     print_separator()
-
-    print(
-        "SPRINGER METADATA ENRICHMENT"
-    )
-
+    print("SPRINGER METADATA ENRICHMENT")
     print_separator()
 
     print(
@@ -368,42 +198,22 @@ def enrich_springer_metadata():
         "and abstracts using the Springer Nature API."
     )
 
-    run_module(
-        "data_management.springer_metadata"
-    )
+    run_module("data_management.springer_metadata")
 
-
-# ============================================================
-# SCREENING
-# ============================================================
 
 def run_screening():
     print()
     print_separator()
-
-    print(
-        "SEMI-AUTOMATED SCREENING"
-    )
-
+    print("SEMI-AUTOMATED SCREENING")
     print_separator()
 
-    run_module(
-        "screening.interactive_screening"
-    )
+    run_module("screening.interactive_screening")
 
-
-# ============================================================
-# COMPLETE WORKFLOW
-# ============================================================
 
 def run_complete_workflow():
     print()
     print_separator()
-
-    print(
-        "COMPLETE DATABASE WORKFLOW"
-    )
-
+    print("COMPLETE DATABASE WORKFLOW")
     print_separator()
 
     database = select_database()
@@ -411,163 +221,76 @@ def run_complete_workflow():
     if database is None:
         return
 
-    print(
-        f"\nSelected database: "
-        f"{database['name']}"
-    )
+    print(f"\nSelected database: {database['name']}")
+    print("\nThe workflow will perform:")
+    print("  1. Record import")
 
-    print(
-        "\nThe workflow will perform:"
-    )
-
-    print(
-        "  1. Record import"
-    )
-
-    if database[
-        "slug"
-    ] == "springer":
-
-        print(
-            "  2. Springer metadata enrichment"
-        )
-
-        print(
-            "  3. Master dataset update"
-        )
-
-        print(
-            "  4. Screening"
-        )
-
+    if database["slug"] == "springer":
+        print("  2. Springer metadata enrichment")
+        print("  3. Master dataset update")
+        print("  4. Screening")
     else:
+        print("  2. Master dataset update")
+        print("  3. Screening")
 
-        print(
-            "  2. Master dataset update"
-        )
+    confirmation = input("\nContinue? [y/N]: ").strip().lower()
 
-        print(
-            "  3. Screening"
-        )
-
-    confirmation = input(
-        "\nContinue? [y/N]: "
-    ).strip().lower()
-
-    if confirmation not in {
-        "y",
-        "yes",
-    }:
-
-        print(
-            "\nWorkflow cancelled."
-        )
-
+    if confirmation not in {"y", "yes"}:
+        print("\nWorkflow cancelled.")
         return
-
-    # --------------------------------------------------------
-    # STEP 1 - IMPORT
-    # --------------------------------------------------------
 
     print()
     print_separator()
-
-    print(
-        "STEP 1 - IMPORT"
-    )
-
+    print("STEP 1 - IMPORT")
     print_separator()
 
-    import_result = run_module(
-        database[
-            "import_module"
-        ]
-    )
+    import_result = run_module(database["import_module"])
 
     if not isinstance(import_result, pd.DataFrame) or import_result.empty:
         print("\nWorkflow stopped: import did not produce valid records.")
         return
 
-    # --------------------------------------------------------
-    # STEP 2 - SPRINGER ENRICHMENT
-    # --------------------------------------------------------
-
-    if database[
-        "slug"
-    ] == "springer":
-
+    if database["slug"] == "springer":
         print()
         print_separator()
-
-        print(
-            "STEP 2 - SPRINGER METADATA ENRICHMENT"
-        )
-
+        print("STEP 2 - SPRINGER METADATA ENRICHMENT")
         print_separator()
 
-        run_module(
-            "data_management.springer_metadata"
-        )
-
-    # --------------------------------------------------------
-    # MASTER UPDATE
-    # --------------------------------------------------------
+        run_module("data_management.springer_metadata")
 
     print()
     print_separator()
-
-    print(
-        "MASTER DATASET UPDATE"
-    )
-
+    print("MASTER DATASET UPDATE")
     print_separator()
 
-    run_module(
+    master_result = run_module(
         "data_management.update_master",
         "main",
-        database=database[
-            "slug"
-        ],
+        database=database["slug"],
     )
 
-    # --------------------------------------------------------
-    # SCREENING
-    # --------------------------------------------------------
+    if not isinstance(master_result, pd.DataFrame) or master_result.empty:
+        print(
+            "\nWorkflow stopped: master dataset update "
+            "did not return valid records."
+        )
+        return
 
     print()
     print_separator()
-
-    print(
-        "SCREENING"
-    )
-
+    print("SCREENING")
     print_separator()
 
-    print(
-        "\nThe interactive screening module will now start."
-    )
+    print("\nThe interactive screening module will now start.")
+    print("Select the same database in the screening menu.")
 
-    print(
-        "Select the same database in the screening menu."
-    )
+    run_module("screening.interactive_screening")
 
-    run_module(
-        "screening.interactive_screening"
-    )
-
-
-# ============================================================
-# ABOUT
-# ============================================================
 
 def show_about():
     print()
     print_separator()
-
-    print(
-        "ABOUT"
-    )
-
+    print("ABOUT")
     print_separator()
 
     print(
@@ -576,159 +299,73 @@ def show_about():
         "for systematic mapping studies involving:"
     )
 
-    print(
-        "\n  - Serious games"
-    )
+    print("\n  - Serious games")
+    print("  - Artificial intelligence")
+    print("  - Internet of Things")
+    print("  - Health applications")
 
-    print(
-        "  - Artificial intelligence"
-    )
+    print("\nThe pipeline combines:")
+    print("\n  - Database-specific metadata import")
+    print("  - Master dataset management")
+    print("  - LLM-assisted evidence classification")
+    print("  - Deterministic decision rules")
+    print("  - Safety-rescue mechanisms")
+    print("  - Manual-review routing")
+    print("  - Checkpoint-based execution")
 
-    print(
-        "  - Internet of Things"
-    )
-
-    print(
-        "  - Health applications"
-    )
-
-    print(
-        "\nThe pipeline combines:"
-    )
-
-    print(
-        "\n  - Database-specific metadata import"
-    )
-
-    print(
-        "  - Master dataset management"
-    )
-
-    print(
-        "  - LLM-assisted evidence classification"
-    )
-
-    print(
-        "  - Deterministic decision rules"
-    )
-
-    print(
-        "  - Safety-rescue mechanisms"
-    )
-
-    print(
-        "  - Manual-review routing"
-    )
-
-    print(
-        "  - Checkpoint-based execution"
-    )
-
-
-# ============================================================
-# MAIN MENU
-# ============================================================
 
 def show_main_menu():
     print_header()
 
-    print(
-        "\nWhat would you like to do?"
-    )
-
+    print("\nWhat would you like to do?")
     print()
 
-    print(
-        "Import records                         [1]"
-    )
+    print("Import records                         [1]")
+    print("Update master dataset                  [2]")
+    print("Enrich Springer metadata               [3]")
+    print("Run semi-automated screening           [4]")
+    print("Run complete workflow for one database [5]")
+    print("About                                  [6]")
+    print("Exit                                   [0]")
 
-    print(
-        "Update master dataset                  [2]"
-    )
-
-    print(
-        "Enrich Springer metadata               [3]"
-    )
-
-    print(
-        "Run semi-automated screening           [4]"
-    )
-
-    print(
-        "Run complete workflow for one database [5]"
-    )
-
-    print(
-        "About                                  [6]"
-    )
-
-    print(
-        "Exit                                   [0]"
-    )
-
-
-# ============================================================
-# APPLICATION ENTRY POINT
-# ============================================================
 
 def main():
     while True:
-
         show_main_menu()
 
-        choice = input(
-            "\nEnter an option: "
-        ).strip()
+        choice = input("\nEnter an option: ").strip()
 
         if choice == "1":
-
             import_records()
             pause()
 
         elif choice == "2":
-
             update_master_dataset()
             pause()
 
         elif choice == "3":
-
             enrich_springer_metadata()
             pause()
 
         elif choice == "4":
-
             run_screening()
             pause()
 
         elif choice == "5":
-
             run_complete_workflow()
             pause()
 
         elif choice == "6":
-
             show_about()
             pause()
 
         elif choice == "0":
-
-            print(
-                "\nExiting."
-            )
-
-            print(
-                "Thank you for using "
-                f"{PROJECT_NAME}."
-            )
-
+            print("\nExiting.")
+            print(f"Thank you for using {PROJECT_NAME}.")
             break
 
         else:
-
-            print(
-                "\nInvalid option."
-            )
-
+            print("\nInvalid option.")
             pause()
 
 
