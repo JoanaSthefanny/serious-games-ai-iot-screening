@@ -1,0 +1,664 @@
+Você está realizando TRIAGEM DE TÍTULO, RESUMO E
+PALAVRAS-CHAVE para um mapeamento sistemático.
+
+O objetivo é identificar estudos sobre JOGOS SÉRIOS
+aplicados à SAÚDE que utilizem simultaneamente:
+
+1. Inteligência Artificial;
+2. Internet das Coisas ou arquitetura funcionalmente
+   compatível com IoT.
+
+Analise EXCLUSIVAMENTE:
+
+- título;
+- abstract;
+- keywords.
+
+NÃO utilize conhecimento externo.
+NÃO invente informações.
+NÃO complete lacunas com suposições.
+
+============================================================
+VALORES PERMITIDOS NO SCHEMA
+============================================================
+
+Para os campos:
+
+- serious_game;
+- gamification_only;
+- health;
+- ai;
+- secondary_or_incomplete;
+
+utilize exclusivamente:
+
+- YES;
+- NO;
+- UNCERTAIN.
+
+Para o campo iot, utilize exclusivamente:
+
+- EXPLICIT_IOT;
+- FUNCTIONALLY_COMPATIBLE;
+- NO;
+- UNCERTAIN.
+
+O texto das evidências e observações pode ser escrito em português.
+
+Não traduza os nomes dos campos nem os rótulos de classificação.
+
+Retorne somente a estrutura solicitada pelo schema.
+
+============================================================
+PRINCÍPIO CENTRAL
+============================================================
+
+Primeiro identifique:
+
+QUAL É A SOLUÇÃO, SISTEMA, JOGO, INTERVENÇÃO,
+ARQUITETURA, DISPOSITIVO OU MÉTODO QUE O ARTIGO
+REALMENTE PROPÕE, IMPLEMENTA, UTILIZA OU AVALIA?
+
+Depois verifique se cada critério pertence a essa solução.
+
+Diferencie:
+
+A) tecnologia/elemento realmente utilizado pelo estudo;
+
+de
+
+B) elemento apenas mencionado como:
+
+- contexto;
+- related work;
+- exemplo;
+- comparação;
+- possível aplicação;
+- aplicação futura;
+- trabalhos anteriores;
+- motivação;
+- estado da arte;
+- keyword isolada.
+
+Elementos apenas do grupo B NÃO devem receber YES.
+
+============================================================
+REGRA YES / UNCERTAIN / NO
+============================================================
+
+YES:
+
+Use quando existe evidência positiva de que o critério
+faz parte da solução realmente estudada.
+
+UNCERTAIN:
+
+Use quando existe ALGUM INDÍCIO POSITIVO ligado à
+solução estudada, mas o resumo omite detalhes necessários
+para confirmação.
+
+UNCERTAIN é especialmente importante quando um detalhe
+técnico normalmente descrito em metodologia ou arquitetura
+não aparece no abstract.
+
+NO:
+
+Use quando:
+
+- a solução está suficientemente descrita e o critério
+  claramente não faz parte dela;
+
+OU
+
+- o critério aparece somente como contexto, comparação,
+  aplicação possível, trabalho futuro ou related work;
+
+OU
+
+- existe evidência explícita incompatível com o critério.
+
+IMPORTANTE:
+
+Ausência de detalhes técnicos no abstract NÃO é, sozinha,
+evidência de ausência.
+
+============================================================
+PALAVRAS-CHAVE
+============================================================
+
+Uma keyword isolada NÃO é suficiente para YES.
+
+Entretanto, uma keyword relevante PODE contribuir para
+UNCERTAIN quando existirem outros elementos da própria solução
+compatíveis com o critério.
+
+Exemplo:
+
+keywords = "serious games"
+
+e o abstract descreve:
+
+- sistema interativo;
+- treinamento;
+- reabilitação;
+- feedback;
+- tarefas estruturadas;
+
+mas não descreve claramente o jogo.
+
+Nesse caso:
+
+serious_game = UNCERTAIN
+
+e não necessariamente NO.
+
+Se a keyword estiver completamente isolada e sem qualquer
+apoio no título ou abstract, ela não confirma o critério.
+
+============================================================
+1. JOGO SÉRIO
+============================================================
+
+Considere evidências positivas:
+
+- serious game;
+- serious games;
+- serious gaming;
+- exergame;
+- exergames;
+- therapeutic game;
+- rehabilitation game;
+- health game;
+- game-based rehabilitation;
+- game-based assessment;
+- jogo para terapia;
+- jogo para treinamento;
+- jogo para avaliação;
+- jogo para reabilitação.
+
+Também podem apoiar a identificação:
+
+- gameplay;
+- player;
+- avatar;
+- game environment;
+- game mechanics;
+- game level;
+- scoring;
+- target;
+- challenge;
+- interactive game task.
+
+------------------------------------------------------------
+serious_game = YES
+------------------------------------------------------------
+
+Use YES quando título ou abstract mostrarem que um jogo,
+exergame ou sistema baseado em jogo faz parte do que os
+autores realmente:
+
+- desenvolveram;
+- utilizaram;
+- implementaram;
+- avaliaram;
+- testaram;
+- investigaram.
+
+------------------------------------------------------------
+serious_game = NO
+------------------------------------------------------------
+
+Use NO quando a solução estudada for claramente apenas:
+
+- classificador;
+- aplicativo de monitoramento;
+- algoritmo;
+- wearable;
+- sensor;
+- banco de dados;
+- plataforma;
+- sistema de reconhecimento;
+- infraestrutura;
+
+e jogos aparecem somente como:
+
+- possível aplicação;
+- trabalho futuro;
+- related work;
+- exemplo;
+- keyword totalmente isolada.
+
+Exemplo:
+
+"this activity recognition method could be used in exergames"
+
+NÃO significa que o artigo investiga um exergame.
+
+------------------------------------------------------------
+serious_game = UNCERTAIN
+------------------------------------------------------------
+
+Use UNCERTAIN quando existir evidência ligada à própria
+solução indicando potencial estrutura de jogo, mas o resumo
+não permitir confirmação segura.
+
+Isso inclui situações em que:
+
+- a solução realiza treinamento interativo;
+- há tarefas estruturadas;
+- existe interação do usuário;
+- existe feedback;
+- há avaliação ou treinamento motor/cognitivo;
+- serious games aparece nas keywords;
+
+E esses elementos pertencem ao sistema estudado.
+
+VR, AR, simulação ou interação SOZINHAS não confirmam jogo.
+
+============================================================
+2. GAMIFICAÇÃO
+============================================================
+
+Gamificação significa elementos de jogos aplicados a uma
+atividade que não constitui necessariamente um jogo completo.
+
+gamification_only = YES:
+
+quando o estudo utiliza somente:
+
+- pontos;
+- badges;
+- ranking;
+- recompensas;
+- desafios;
+- progressão gamificada;
+
+sem jogo completo.
+
+Se existe serious game ou exergame real:
+
+gamification_only = NO.
+
+Se houver evidência relacionada à solução, mas não for
+possível distinguir gamificação de jogo:
+
+gamification_only = UNCERTAIN.
+
+============================================================
+3. SAÚDE
+============================================================
+
+Saúde NÃO está limitada a hospitais, tratamento clínico
+ou pessoas com doença diagnosticada.
+
+Considere finalidade de saúde quando a solução estiver
+relacionada a:
+
+- diagnóstico;
+- tratamento;
+- terapia;
+- reabilitação;
+- fisioterapia;
+- neuroreabilitação;
+- avaliação clínica;
+- avaliação funcional;
+- prevenção;
+- promoção da saúde;
+- atividade física voltada à saúde;
+- combate ao sedentarismo;
+- redução ou prevenção da obesidade;
+- melhoria da capacidade funcional;
+- treinamento motor;
+- treinamento sensorimotor;
+- cognição em contexto de saúde;
+- avaliação emocional ou fisiológica relacionada à saúde;
+- condições médicas;
+- pacientes;
+- pessoas com deficiência;
+- envelhecimento saudável.
+
+------------------------------------------------------------
+health = YES
+------------------------------------------------------------
+
+Use YES quando essa finalidade estiver claramente ligada
+à solução estudada.
+
+Fitness, exercício e atividade física PODEM constituir
+saúde quando o próprio estudo relacionar a solução a:
+
+- obesidade;
+- sedentarismo;
+- inatividade física;
+- prevenção;
+- reabilitação;
+- bem-estar físico;
+- promoção de saúde;
+- capacidade funcional.
+
+------------------------------------------------------------
+health = NO
+------------------------------------------------------------
+
+Use NO quando a aplicação principal estiver claramente
+fora da saúde.
+
+Exemplos:
+
+- competição esportiva;
+- eSports;
+- desempenho atlético sem finalidade de saúde;
+- treinamento industrial;
+- treinamento militar;
+- treinamento de terremoto;
+- segurança genérica;
+- educação geral.
+
+Uma menção incidental a:
+
+- heart rate;
+- health status;
+- fatigue;
+- stress;
+
+não transforma automaticamente uma aplicação de outro
+domínio em aplicação de saúde.
+
+------------------------------------------------------------
+health = UNCERTAIN
+------------------------------------------------------------
+
+Use UNCERTAIN quando existirem sinais ligados à solução de
+avaliação:
+
+- emocional;
+- cognitiva;
+- fisiológica;
+- funcional;
+- motora;
+
+ou população/contexto potencialmente relacionado à saúde,
+mas a finalidade de saúde não estiver suficientemente clara.
+
+============================================================
+4. INTELIGÊNCIA ARTIFICIAL
+============================================================
+
+Possíveis evidências:
+
+- Artificial Intelligence;
+- AI;
+- Machine Learning;
+- ML;
+- Deep Learning;
+- neural network;
+- CNN;
+- RNN;
+- GNN;
+- reinforcement learning;
+- genetic algorithm;
+- Computer Vision;
+- pose estimation;
+- human activity recognition baseado em modelo;
+- pattern recognition;
+- Natural Language Processing;
+- NLP;
+- modelo treinado;
+- modelo pré-treinado;
+- classificação baseada em modelo;
+- predição baseada em modelo;
+- MediaPipe quando usado para reconhecimento ou rastreamento.
+
+------------------------------------------------------------
+ai = YES
+------------------------------------------------------------
+
+Use quando IA realmente fizer parte da solução ou método.
+
+------------------------------------------------------------
+ai = NO
+------------------------------------------------------------
+
+Use quando IA aparecer somente como:
+
+- contexto;
+- trabalho futuro;
+- related work;
+- comparação;
+- keyword isolada;
+
+ou quando a solução utilizar apenas:
+
+- regras fixas;
+- cálculo convencional;
+- estatística tradicional;
+- processamento comum.
+
+"algorithm" sozinho NÃO significa IA.
+
+------------------------------------------------------------
+ai = UNCERTAIN
+------------------------------------------------------------
+
+Use quando existir indício concreto ligado à solução de:
+
+- aprendizado;
+- classificação;
+- predição;
+- reconhecimento;
+- adaptação;
+
+mas a abordagem não estiver suficientemente caracterizada.
+
+============================================================
+5. INTERNET DAS COISAS
+============================================================
+
+Classificações possíveis:
+
+- EXPLICIT_IOT;
+- FUNCTIONALLY_COMPATIBLE;
+- NO;
+- UNCERTAIN.
+
+============================================================
+5.1 iot = EXPLICIT_IOT
+============================================================
+
+Use somente quando título ou abstract afirmarem que
+A SOLUÇÃO DO ARTIGO utiliza:
+
+- Internet of Things;
+- IoT;
+- Internet of Medical Things;
+- IoMT;
+
+ou equivalente explícito.
+
+A ocorrência da palavra IoT em:
+
+- introdução;
+- related work;
+- comparação;
+- trabalho futuro;
+- keyword isolada;
+
+NÃO basta.
+
+============================================================
+5.2 iot = FUNCTIONALLY_COMPATIBLE
+============================================================
+
+Internet pública, cloud e servidor remoto NÃO são
+obrigatórios.
+
+Uma arquitetura funcionalmente compatível pode possuir:
+
+A) AQUISIÇÃO
+
+- wearable;
+- EEG;
+- EMG;
+- IMU;
+- acelerômetro;
+- giroscópio;
+- sensor corporal;
+- smart sensor;
+- microcontrolador;
+- dispositivo médico;
+- câmera ou tracker;
+
+E
+
+B) COMUNICAÇÃO / TRANSMISSÃO
+
+- Bluetooth;
+- Wi-Fi;
+- wireless;
+- nRF24L01;
+- Zigbee;
+- MQTT;
+- UDP;
+- TCP/IP;
+- rede;
+- transmissão de dados;
+- conexão entre dispositivos;
+
+E
+
+C) OUTRO COMPONENTE
+
+- computador;
+- smartphone;
+- gateway;
+- aplicação;
+- jogo;
+- modelo de IA;
+- servidor;
+- plataforma;
+- cloud.
+
+FUNCTIONALLY_COMPATIBLE exige evidência positiva de comunicação
+entre componentes.
+
+============================================================
+5.3 iot = UNCERTAIN
+============================================================
+
+Use UNCERTAIN quando:
+
+1. wearable, sensor ou dispositivo realmente fizer parte
+   da solução;
+
+2. os dados desse dispositivo forem utilizados pelo jogo,
+   sistema, aplicação ou IA;
+
+MAS
+
+3. o abstract não explicar suficientemente como os dados
+   chegam ao outro componente.
+
+NÃO transforme automaticamente em NO apenas porque o
+protocolo de comunicação foi omitido do abstract.
+
+============================================================
+5.4 iot = NO
+============================================================
+
+Use NO quando:
+
+- processamento exclusivamente local estiver explicitamente
+  descrito;
+
+- sensor/dispositivo for claramente isolado;
+
+- câmera estiver ligada diretamente a processamento local
+  sem arquitetura conectada;
+
+- não existir transmissão ou integração com outro componente
+  e a solução estiver suficientemente descrita;
+
+- IoT aparecer apenas em related work, comparação,
+  contexto ou possibilidade futura.
+
+Sensor + algoritmo sozinho NÃO prova IoT.
+
+Câmera + computador local sozinho NÃO prova IoT.
+
+============================================================
+6. ESTUDO SECUNDÁRIO OU INCOMPLETO
+============================================================
+
+Classifique:
+
+secondary_or_incomplete = YES
+
+somente quando houver evidência clara de que o objetivo
+principal ou método do trabalho é:
+
+- systematic review;
+- scoping review;
+- integrative review;
+- narrative review;
+- literature review;
+- systematic mapping;
+- mapping study;
+- meta-analysis;
+- bibliometric study;
+- protocol;
+- conference abstract;
+- poster;
+- editorial;
+- trabalho incompleto.
+
+"overview" isoladamente NÃO demonstra revisão.
+
+Se houver contribuição original clara, como:
+
+- we developed;
+- we designed;
+- we implemented;
+- we propose;
+- we present;
+- we introduce;
+- we evaluated;
+- we tested;
+- our system;
+- our architecture;
+- our game;
+- our framework;
+- our prototype;
+- experimento;
+- participantes;
+- pacientes;
+- validação;
+
+classifique como NO.
+
+Se ainda houver ambiguidade:
+
+secondary_or_incomplete = UNCERTAIN.
+
+============================================================
+7. REGRA DE SEGURANÇA
+============================================================
+
+Esta é uma TRIAGEM inicial.
+
+Não invente critérios, mas também não transforme omissões
+normais de abstracts em evidência negativa.
+
+Quando três dos quatro critérios:
+
+- jogo;
+- saúde;
+- IA;
+- IoT;
+
+estiverem fortemente confirmados e o quarto possuir algum
+indício plausível ligado à solução, prefira UNCERTAIN.
+
+Não use YES apenas para evitar falsos negativos.
+
+Não use NO apenas porque o abstract omitiu um detalhe
+técnico.

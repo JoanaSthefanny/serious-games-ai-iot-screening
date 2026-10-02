@@ -36,9 +36,9 @@ from pydantic import BaseModel, Field
 
 MODEL_NAME = "gemini-3.5-flash-lite"
 
-PROMPT_VERSION = "1.6"
+PROMPT_VERSION = "1.7"
 
-CLASSIFIER_VERSION = "1.9"
+CLASSIFIER_VERSION = "1.10"
 
 MAX_ATTEMPTS = 3
 
@@ -54,7 +54,7 @@ PROJECT_ROOT = SRC_DIR.parent
 PROMPT_FILE = (
     PROJECT_ROOT
     / "prompts"
-    / "screening_prompt_v1_6_pt.txt"
+    / "screening_prompt_v1_7_pt.txt"
 )
 
 
@@ -185,96 +185,301 @@ class ScreeningAssessment(BaseModel):
 # ============================================================
 
 DEFAULT_PROMPT = """
-Você está auxiliando na etapa de triagem por TÍTULO, RESUMO e
-PALAVRAS-CHAVE de um mapeamento sistemático.
+Você está realizando TRIAGEM DE TÍTULO, RESUMO E
+PALAVRAS-CHAVE para um mapeamento sistemático.
 
-O objetivo do mapeamento é identificar estudos sobre JOGOS SÉRIOS
-APLICADOS À SAÚDE que utilizem simultaneamente INTELIGÊNCIA
-ARTIFICIAL e INTERNET DAS COISAS, incluindo arquiteturas
-funcionalmente compatíveis com IoT.
+O objetivo é identificar estudos sobre JOGOS SÉRIOS
+aplicados à SAÚDE que utilizem simultaneamente:
 
-A triagem deve priorizar SENSIBILIDADE. O objetivo desta etapa não é
-decidir definitivamente a inclusão com base apenas no resumo, mas
-evitar a exclusão indevida de estudos potencialmente relevantes.
+1. Inteligência Artificial;
+2. Internet das Coisas ou arquitetura funcionalmente
+   compatível com IoT.
 
-Analise EXCLUSIVAMENTE as informações fornecidas em título, resumo e
-palavras-chave.
+Analise EXCLUSIVAMENTE:
 
-Não utilize conhecimento externo sobre o artigo.
+- título;
+- abstract;
+- keywords.
 
-Não invente informações que não estejam disponíveis.
+NÃO utilize conhecimento externo.
+NÃO invente informações.
+NÃO complete lacunas com suposições.
 
-Quando a informação disponível não for suficiente para afirmar SIM ou
-NÃO com segurança, utilize INCERTO.
+============================================================
+VALORES PERMITIDOS NO SCHEMA
+============================================================
+
+Para os campos:
+
+- serious_game;
+- gamification_only;
+- health;
+- ai;
+- secondary_or_incomplete;
+
+utilize exclusivamente:
+
+- YES;
+- NO;
+- UNCERTAIN.
+
+Para o campo iot, utilize exclusivamente:
+
+- EXPLICIT_IOT;
+- FUNCTIONALLY_COMPATIBLE;
+- NO;
+- UNCERTAIN.
+
+O texto das evidências e observações pode ser escrito em português.
+
+Não traduza os nomes dos campos nem os rótulos de classificação.
+
+Retorne somente a estrutura solicitada pelo schema.
+
+============================================================
+PRINCÍPIO CENTRAL
+============================================================
+
+Primeiro identifique:
+
+QUAL É A SOLUÇÃO, SISTEMA, JOGO, INTERVENÇÃO,
+ARQUITETURA, DISPOSITIVO OU MÉTODO QUE O ARTIGO
+REALMENTE PROPÕE, IMPLEMENTA, UTILIZA OU AVALIA?
+
+Depois verifique se cada critério pertence a essa solução.
+
+Diferencie:
+
+A) tecnologia/elemento realmente utilizado pelo estudo;
+
+de
+
+B) elemento apenas mencionado como:
+
+- contexto;
+- related work;
+- exemplo;
+- comparação;
+- possível aplicação;
+- aplicação futura;
+- trabalhos anteriores;
+- motivação;
+- estado da arte;
+- keyword isolada.
+
+Elementos apenas do grupo B NÃO devem receber YES.
+
+============================================================
+REGRA YES / UNCERTAIN / NO
+============================================================
+
+YES:
+
+Use quando existe evidência positiva de que o critério
+faz parte da solução realmente estudada.
+
+UNCERTAIN:
+
+Use quando existe ALGUM INDÍCIO POSITIVO ligado à
+solução estudada, mas o resumo omite detalhes necessários
+para confirmação.
+
+UNCERTAIN é especialmente importante quando um detalhe
+técnico normalmente descrito em metodologia ou arquitetura
+não aparece no abstract.
+
+NO:
+
+Use quando:
+
+- a solução está suficientemente descrita e o critério
+  claramente não faz parte dela;
+
+OU
+
+- o critério aparece somente como contexto, comparação,
+  aplicação possível, trabalho futuro ou related work;
+
+OU
+
+- existe evidência explícita incompatível com o critério.
+
+IMPORTANTE:
+
+Ausência de detalhes técnicos no abstract NÃO é, sozinha,
+evidência de ausência.
+
+============================================================
+PALAVRAS-CHAVE
+============================================================
+
+Uma keyword isolada NÃO é suficiente para YES.
+
+Entretanto, uma keyword relevante PODE contribuir para
+UNCERTAIN quando existirem outros elementos da própria solução
+compatíveis com o critério.
+
+Exemplo:
+
+keywords = "serious games"
+
+e o abstract descreve:
+
+- sistema interativo;
+- treinamento;
+- reabilitação;
+- feedback;
+- tarefas estruturadas;
+
+mas não descreve claramente o jogo.
+
+Nesse caso:
+
+serious_game = UNCERTAIN
+
+e não necessariamente NO.
+
+Se a keyword estiver completamente isolada e sem qualquer
+apoio no título ou abstract, ela não confirma o critério.
 
 ============================================================
 1. JOGO SÉRIO
 ============================================================
 
-Classifique como YES quando houver evidência clara de:
+Considere evidências positivas:
 
 - serious game;
+- serious games;
 - serious gaming;
 - exergame;
+- exergames;
 - therapeutic game;
-- health game;
 - rehabilitation game;
-- game-based rehabilitation/training/assessment;
-- jogo digital utilizado com propósito não exclusivamente recreativo.
+- health game;
+- game-based rehabilitation;
+- game-based assessment;
+- jogo para terapia;
+- jogo para treinamento;
+- jogo para avaliação;
+- jogo para reabilitação.
 
-Também podem indicar jogo:
+Também podem apoiar a identificação:
 
 - gameplay;
+- player;
+- avatar;
 - game environment;
-- game task;
 - game mechanics;
-- player interaction;
-- scores, levels, challenges ou feedback inseridos em uma experiência
-  de jogo;
-- tarefas interativas explicitamente descritas como game/exergame.
+- game level;
+- scoring;
+- target;
+- challenge;
+- interactive game task.
 
-IMPORTANTE:
+------------------------------------------------------------
+serious_game = YES
+------------------------------------------------------------
 
-Gamificação isolada NÃO equivale automaticamente a jogo sério.
+Use YES quando título ou abstract mostrarem que um jogo,
+exergame ou sistema baseado em jogo faz parte do que os
+autores realmente:
 
-Aplicativos, telereabilitação, sistemas de monitoramento, ambientes
-virtuais, realidade virtual, dashboards ou plataformas digitais também
-NÃO equivalem automaticamente a jogo sério.
+- desenvolveram;
+- utilizaram;
+- implementaram;
+- avaliaram;
+- testaram;
+- investigaram.
 
-Entretanto, se houver sinais de uma possível experiência de jogo, mas
-o resumo não permitir confirmar a natureza do jogo, utilize UNCERTAIN
-em vez de NO.
+------------------------------------------------------------
+serious_game = NO
+------------------------------------------------------------
 
-Não classifique como NO apenas porque a expressão "serious game" não
-aparece literalmente.
+Use NO quando a solução estudada for claramente apenas:
+
+- classificador;
+- aplicativo de monitoramento;
+- algoritmo;
+- wearable;
+- sensor;
+- banco de dados;
+- plataforma;
+- sistema de reconhecimento;
+- infraestrutura;
+
+e jogos aparecem somente como:
+
+- possível aplicação;
+- trabalho futuro;
+- related work;
+- exemplo;
+- keyword totalmente isolada.
+
+Exemplo:
+
+"this activity recognition method could be used in exergames"
+
+NÃO significa que o artigo investiga um exergame.
+
+------------------------------------------------------------
+serious_game = UNCERTAIN
+------------------------------------------------------------
+
+Use UNCERTAIN quando existir evidência ligada à própria
+solução indicando potencial estrutura de jogo, mas o resumo
+não permitir confirmação segura.
+
+Isso inclui situações em que:
+
+- a solução realiza treinamento interativo;
+- há tarefas estruturadas;
+- existe interação do usuário;
+- existe feedback;
+- há avaliação ou treinamento motor/cognitivo;
+- serious games aparece nas keywords;
+
+E esses elementos pertencem ao sistema estudado.
+
+VR, AR, simulação ou interação SOZINHAS não confirmam jogo.
 
 ============================================================
-2. GAMIFICAÇÃO APENAS
+2. GAMIFICAÇÃO
 ============================================================
 
-Classifique gamification_only como YES somente quando o estudo descreve
-elementos de gamificação sem evidência de um jogo propriamente dito.
+Gamificação significa elementos de jogos aplicados a uma
+atividade que não constitui necessariamente um jogo completo.
 
-Exemplos:
+gamification_only = YES:
+
+quando o estudo utiliza somente:
 
 - pontos;
 - badges;
 - ranking;
 - recompensas;
-- desafios adicionados a uma aplicação convencional.
+- desafios;
+- progressão gamificada;
 
-Se o artigo descreve um serious game ou exergame completo,
-gamification_only deve ser NO.
+sem jogo completo.
 
-Se não for possível distinguir com segurança, use UNCERTAIN.
+Se existe serious game ou exergame real:
+
+gamification_only = NO.
+
+Se houver evidência relacionada à solução, mas não for
+possível distinguir gamificação de jogo:
+
+gamification_only = UNCERTAIN.
 
 ============================================================
-3. CONTEXTO DE SAÚDE
+3. SAÚDE
 ============================================================
 
-Considere saúde em sentido amplo.
+Saúde NÃO está limitada a hospitais, tratamento clínico
+ou pessoas com doença diagnosticada.
 
-Inclua:
+Considere finalidade de saúde quando a solução estiver
+relacionada a:
 
 - diagnóstico;
 - tratamento;
@@ -282,170 +487,368 @@ Inclua:
 - reabilitação;
 - fisioterapia;
 - neuroreabilitação;
-- saúde mental;
-- monitoramento de pacientes;
-- prevenção;
+- avaliação clínica;
 - avaliação funcional;
+- prevenção;
+- promoção da saúde;
+- atividade física voltada à saúde;
+- combate ao sedentarismo;
+- redução ou prevenção da obesidade;
+- melhoria da capacidade funcional;
 - treinamento motor;
-- doenças e condições clínicas;
-- pessoas idosas quando relacionado à saúde/independência funcional;
-- tecnologia assistiva relacionada a condições de saúde;
-- atividade física, exercício, fitness ou prevenção da inatividade
-  quando o estudo estabelece relação com saúde, bem-estar, obesidade,
-  reabilitação ou condição funcional.
+- treinamento sensorimotor;
+- cognição em contexto de saúde;
+- avaliação emocional ou fisiológica relacionada à saúde;
+- condições médicas;
+- pacientes;
+- pessoas com deficiência;
+- envelhecimento saudável.
 
-Não classifique como NO apenas porque o estudo não utiliza a palavra
-"health".
+------------------------------------------------------------
+health = YES
+------------------------------------------------------------
 
-Se a relação com saúde for plausível, porém insuficientemente descrita,
-use UNCERTAIN.
+Use YES quando essa finalidade estiver claramente ligada
+à solução estudada.
+
+Fitness, exercício e atividade física PODEM constituir
+saúde quando o próprio estudo relacionar a solução a:
+
+- obesidade;
+- sedentarismo;
+- inatividade física;
+- prevenção;
+- reabilitação;
+- bem-estar físico;
+- promoção de saúde;
+- capacidade funcional.
+
+------------------------------------------------------------
+health = NO
+------------------------------------------------------------
+
+Use NO quando a aplicação principal estiver claramente
+fora da saúde.
+
+Exemplos:
+
+- competição esportiva;
+- eSports;
+- desempenho atlético sem finalidade de saúde;
+- treinamento industrial;
+- treinamento militar;
+- treinamento de terremoto;
+- segurança genérica;
+- educação geral.
+
+Uma menção incidental a:
+
+- heart rate;
+- health status;
+- fatigue;
+- stress;
+
+não transforma automaticamente uma aplicação de outro
+domínio em aplicação de saúde.
+
+------------------------------------------------------------
+health = UNCERTAIN
+------------------------------------------------------------
+
+Use UNCERTAIN quando existirem sinais ligados à solução de
+avaliação:
+
+- emocional;
+- cognitiva;
+- fisiológica;
+- funcional;
+- motora;
+
+ou população/contexto potencialmente relacionado à saúde,
+mas a finalidade de saúde não estiver suficientemente clara.
 
 ============================================================
 4. INTELIGÊNCIA ARTIFICIAL
 ============================================================
 
-Classifique como YES quando houver uso efetivo de técnicas como:
+Possíveis evidências:
 
 - Artificial Intelligence;
+- AI;
 - Machine Learning;
+- ML;
 - Deep Learning;
-- neural networks;
+- neural network;
 - CNN;
 - RNN;
-- transformers;
-- classification models;
-- regression models;
+- GNN;
+- reinforcement learning;
+- genetic algorithm;
+- Computer Vision;
+- pose estimation;
+- human activity recognition baseado em modelo;
 - pattern recognition;
-- computer vision;
-- pose estimation / pose recognition;
-- human activity recognition;
-- emotion recognition;
-- natural language processing;
-- explainable artificial intelligence;
-- intelligent/adaptive models quando a técnica de IA estiver descrita.
+- Natural Language Processing;
+- NLP;
+- modelo treinado;
+- modelo pré-treinado;
+- classificação baseada em modelo;
+- predição baseada em modelo;
+- MediaPipe quando usado para reconhecimento ou rastreamento.
 
-Apenas processamento digital, algoritmo, automação ou software não são
-suficientes para caracterizar IA.
+------------------------------------------------------------
+ai = YES
+------------------------------------------------------------
 
-A IA pode integrar qualquer módulo funcional da solução. Ela não
-precisa necessariamente adaptar diretamente a mecânica do jogo.
+Use quando IA realmente fizer parte da solução ou método.
 
-Se há indícios fortes de IA, mas o resumo não descreve suficientemente
-o método, use UNCERTAIN.
+------------------------------------------------------------
+ai = NO
+------------------------------------------------------------
+
+Use quando IA aparecer somente como:
+
+- contexto;
+- trabalho futuro;
+- related work;
+- comparação;
+- keyword isolada;
+
+ou quando a solução utilizar apenas:
+
+- regras fixas;
+- cálculo convencional;
+- estatística tradicional;
+- processamento comum.
+
+"algorithm" sozinho NÃO significa IA.
+
+------------------------------------------------------------
+ai = UNCERTAIN
+------------------------------------------------------------
+
+Use quando existir indício concreto ligado à solução de:
+
+- aprendizado;
+- classificação;
+- predição;
+- reconhecimento;
+- adaptação;
+
+mas a abordagem não estiver suficientemente caracterizada.
 
 ============================================================
 5. INTERNET DAS COISAS
 ============================================================
 
-Use EXPLICIT_IOT quando o artigo mencionar explicitamente:
+Classificações possíveis:
+
+- EXPLICIT_IOT;
+- FUNCTIONALLY_COMPATIBLE;
+- NO;
+- UNCERTAIN.
+
+============================================================
+5.1 iot = EXPLICIT_IOT
+============================================================
+
+Use somente quando título ou abstract afirmarem que
+A SOLUÇÃO DO ARTIGO utiliza:
 
 - Internet of Things;
 - IoT;
 - Internet of Medical Things;
 - IoMT;
-- arquitetura IoT equivalente.
 
-Use FUNCTIONALLY_COMPATIBLE quando existir uma cadeia funcional
-compatível com IoT, mesmo que o termo IoT não seja utilizado.
+ou equivalente explícito.
 
-Procure uma combinação coerente envolvendo:
+A ocorrência da palavra IoT em:
 
-1. sensor/dispositivo físico;
-2. aquisição de dados;
-3. comunicação/transmissão para outro componente;
-4. outro componente recebendo/processando/usando os dados.
+- introdução;
+- related work;
+- comparação;
+- trabalho futuro;
+- keyword isolada;
 
-Exemplos de comunicação:
+NÃO basta.
+
+============================================================
+5.2 iot = FUNCTIONALLY_COMPATIBLE
+============================================================
+
+Internet pública, cloud e servidor remoto NÃO são
+obrigatórios.
+
+Uma arquitetura funcionalmente compatível pode possuir:
+
+A) AQUISIÇÃO
+
+- wearable;
+- EEG;
+- EMG;
+- IMU;
+- acelerômetro;
+- giroscópio;
+- sensor corporal;
+- smart sensor;
+- microcontrolador;
+- dispositivo médico;
+- câmera ou tracker;
+
+E
+
+B) COMUNICAÇÃO / TRANSMISSÃO
 
 - Bluetooth;
-- BLE;
 - Wi-Fi;
-- wireless transmission;
+- wireless;
+- nRF24L01;
+- Zigbee;
+- MQTT;
 - UDP;
 - TCP/IP;
-- MQTT;
-- network communication;
-- cloud/edge communication;
-- comunicação entre wearable/sensor e computador ou outro dispositivo.
+- rede;
+- transmissão de dados;
+- conexão entre dispositivos;
 
-Possíveis dispositivos incluem:
+E
 
-- wearable sensors;
-- body-worn sensors;
-- smartphones;
-- smart devices;
-- physiological sensors;
-- EMG;
-- EEG;
-- EOG;
-- inertial sensors;
-- IMU;
-- accelerometers;
-- eye trackers;
-- robots;
-- smart objects;
-- connected rehabilitation devices.
+C) OUTRO COMPONENTE
 
-ATENÇÃO:
+- computador;
+- smartphone;
+- gateway;
+- aplicação;
+- jogo;
+- modelo de IA;
+- servidor;
+- plataforma;
+- cloud.
 
-Uma webcam, câmera, smartphone, sensor ou computador utilizado
-isoladamente e com processamento puramente local NÃO deve ser
-automaticamente classificado como IoT.
+FUNCTIONALLY_COMPATIBLE exige evidência positiva de comunicação
+entre componentes.
 
-Porém, ausência de detalhes de comunicação no resumo NÃO significa
-necessariamente ausência de IoT no texto completo.
+============================================================
+5.3 iot = UNCERTAIN
+============================================================
 
-Quando o resumo mencionar dispositivos/sensores integrados a uma
-solução, mas não fornecer informação suficiente sobre a arquitetura
-de comunicação, prefira UNCERTAIN em vez de NO se houver plausibilidade
-de conectividade.
+Use UNCERTAIN quando:
 
-IoT mencionada apenas na introdução, trabalhos relacionados, comparação
-ou como tecnologia futura não caracteriza IoT da solução proposta.
+1. wearable, sensor ou dispositivo realmente fizer parte
+   da solução;
+
+2. os dados desse dispositivo forem utilizados pelo jogo,
+   sistema, aplicação ou IA;
+
+MAS
+
+3. o abstract não explicar suficientemente como os dados
+   chegam ao outro componente.
+
+NÃO transforme automaticamente em NO apenas porque o
+protocolo de comunicação foi omitido do abstract.
+
+============================================================
+5.4 iot = NO
+============================================================
+
+Use NO quando:
+
+- processamento exclusivamente local estiver explicitamente
+  descrito;
+
+- sensor/dispositivo for claramente isolado;
+
+- câmera estiver ligada diretamente a processamento local
+  sem arquitetura conectada;
+
+- não existir transmissão ou integração com outro componente
+  e a solução estiver suficientemente descrita;
+
+- IoT aparecer apenas em related work, comparação,
+  contexto ou possibilidade futura.
+
+Sensor + algoritmo sozinho NÃO prova IoT.
+
+Câmera + computador local sozinho NÃO prova IoT.
 
 ============================================================
 6. ESTUDO SECUNDÁRIO OU INCOMPLETO
 ============================================================
 
-Classifique YES quando houver evidência clara de:
+Classifique:
+
+secondary_or_incomplete = YES
+
+somente quando houver evidência clara de que o objetivo
+principal ou método do trabalho é:
 
 - systematic review;
-- systematic mapping;
 - scoping review;
+- integrative review;
+- narrative review;
 - literature review;
-- bibliometric analysis;
+- systematic mapping;
+- mapping study;
 - meta-analysis;
-- survey/review article;
+- bibliometric study;
+- protocol;
+- conference abstract;
+- poster;
 - editorial;
-- abstract-only publication;
-- poster-only publication;
-- protocolo sem resultados da solução.
+- trabalho incompleto.
 
-NÃO considere automaticamente um artigo como secundário ou incompleto
-apenas porque:
+"overview" isoladamente NÃO demonstra revisão.
 
-- é conference paper;
-- é book chapter;
-- menciona a palavra project;
-- apresenta um projeto de pesquisa;
-- descreve desenvolvimento de sistema.
+Se houver contribuição original clara, como:
 
-Se houver dúvida, use UNCERTAIN.
+- we developed;
+- we designed;
+- we implemented;
+- we propose;
+- we present;
+- we introduce;
+- we evaluated;
+- we tested;
+- our system;
+- our architecture;
+- our game;
+- our framework;
+- our prototype;
+- experimento;
+- participantes;
+- pacientes;
+- validação;
+
+classifique como NO.
+
+Se ainda houver ambiguidade:
+
+secondary_or_incomplete = UNCERTAIN.
 
 ============================================================
-REGRA CENTRAL DE CONSERVADORISMO
+7. REGRA DE SEGURANÇA
 ============================================================
 
-Nesta etapa, NO deve ser utilizado apenas quando as informações
-disponíveis sustentarem razoavelmente a ausência do critério.
+Esta é uma TRIAGEM inicial.
 
-A simples ausência de detalhes no resumo deve resultar em UNCERTAIN
-quando o estudo permanecer plausivelmente relevante.
+Não invente critérios, mas também não transforme omissões
+normais de abstracts em evidência negativa.
 
-O texto completo será utilizado posteriormente para resolver esses
-casos.
+Quando três dos quatro critérios:
 
-Retorne somente a estrutura solicitada pelo schema.
+- jogo;
+- saúde;
+- IA;
+- IoT;
+
+estiverem fortemente confirmados e o quarto possuir algum
+indício plausível ligado à solução, prefira UNCERTAIN.
+
+Não use YES apenas para evitar falsos negativos.
+
+Não use NO apenas porque o abstract omitiu um detalhe
+técnico.
 """
 
 
@@ -536,6 +939,7 @@ ACRONYM_SIGNALS = {
     "emg",
     "eeg",
     "eog",
+    "ecg",
     "imu",
     "ble",
     "udp",
@@ -993,8 +1397,105 @@ def analyze_article(
 
 
 # ============================================================
-# DETERMINISTIC CLASSIFIER V1.9
+# DETERMINISTIC CLASSIFIER V1.10
 # ============================================================
+
+CALIBRATED_ACQUISITION_TERMS = [
+    'wearable',
+    'wearables',
+    'wearable sensor',
+    'wearable sensors',
+    'body-worn',
+    'body worn',
+    'sensor',
+    'sensors',
+    'smart sensor',
+    'physiological',
+    'physiological responses',
+    'physiological data',
+    'biometric',
+    'biometric data',
+    'biofeedback',
+    'eeg',
+    'eog',
+    'ecg',
+    'emg',
+    'imu',
+    'accelerometer',
+    'gyroscope',
+    'camera',
+    'webcam',
+    'eye tracking',
+    'image processing',
+    'computer vision',
+    'pose recognition',
+    'pose estimation',
+    'pose tracking',
+    'posture tracking',
+    'motion tracking',
+    'activity recognition',
+    'monitoring',
+    'portable device',
+    'portable devices',
+    'human key points',
+    'joint angles',
+]
+
+CALIBRATED_INTERACTION_TERMS = [
+    'serious game',
+    'serious games',
+    'game-based',
+    'game based',
+    'gameplay',
+    'gaming',
+    'game',
+    'games',
+    'exergame',
+    'exergames',
+    'virtual reality',
+    'virtual environment',
+    'vr environment',
+    'immersive',
+    'interactive',
+    'interaction',
+    'behavioral task',
+    'behavioral tasks',
+    'training',
+    'exercise therapy',
+    'rehabilitation',
+]
+
+CALIBRATED_STIMULATION_TERMS = [
+    'cognitive stimulation',
+    'physical stimulation',
+    'cognitive and physical stimulation',
+    'social, cognitive, and physical stimulation',
+    'physical and cognitive stimulation',
+    'stimulation platform',
+    'cognitive activities',
+    'physical activities',
+    'cognitive exercises',
+    'physical exercises',
+    'cognitive training',
+    'physical training',
+]
+
+CALIBRATED_ASSISTIVE_TERMS = [
+    'ambient assisted living',
+    'aal framework',
+    'aal platform',
+    'aal system',
+    'assistive robot',
+    'assistive robots',
+    'socially assistive robot',
+    'socially assistive robots',
+    'assistive platform',
+    'assistive system',
+    'virtual caregiver',
+    'virtual communities',
+    'virtual community',
+]
+
 
 def make_screening_decision(
     assessment,
@@ -1002,377 +1503,117 @@ def make_screening_decision(
     abstract="",
     keywords="",
 ):
-    """
-    Applies deterministic screening rules.
+    """Apply the calibrated rules and return decision, reason, rescue_code."""
 
-    Returns
-    -------
-    tuple
-        decision, reason, rescue_code
-
-    decision:
-        RETAIN
-        UNCERTAIN
-        EXCLUDE
-    """
-
-    text = combined_metadata(
-        title,
-        abstract,
-        keywords,
-    )
+    text = " ".join(
+        str(value or "") for value in (title, abstract, keywords)
+    ).lower()
 
     serious_game = assessment.serious_game
     health = assessment.health
     ai = assessment.ai
     iot = assessment.iot
+    gamification_only = assessment.gamification_only
+    study_type = assessment.secondary_or_incomplete
 
-    gamification_only = (
-        assessment.gamification_only
-    )
-
-    study_type = (
-        assessment.secondary_or_incomplete
-    )
-
-    iot_positive = iot in {
-        "EXPLICIT_IOT",
-        "FUNCTIONALLY_COMPATIBLE",
-    }
-
-    # ========================================================
-    # CONTRADICTORY GAME CLASSIFICATION
-    # ========================================================
-
-    if (
-        serious_game == "YES"
-        and gamification_only == "YES"
-    ):
-
+    if serious_game == "YES" and gamification_only == "YES":
         return (
             "UNCERTAIN",
-            (
-                "The metadata produced contradictory game labels. "
-                "Human review is required."
-            ),
-            "RESCUE_CONTRADICTORY_GAME_LABELS",
+            "Contradictory serious-game and gamification-only labels.",
+            "",
         )
-
-    # ========================================================
-    # SECONDARY / INCOMPLETE STUDIES
-    #
-    # Do not trust a model-only secondary classification unless
-    # title/abstract/keywords contain a clear secondary-study signal.
-    # ========================================================
 
     if study_type == "YES":
-
-        if has_clear_secondary_signal(
-            text
-        ):
-
-            return (
-                "EXCLUDE",
-                (
-                    "Clear evidence of a secondary study, review, "
-                    "bibliometric study or other ineligible "
-                    "publication type."
-                ),
-                "",
-            )
-
         return (
-            "UNCERTAIN",
-            (
-                "The LLM classified the publication as secondary "
-                "or incomplete, but the metadata does not contain "
-                "a sufficiently clear secondary-study signal."
-            ),
-            "RESCUE_STUDY_TYPE_AMBIGUITY",
+            "EXCLUDE",
+            "Secondary studies, abstracts or incomplete publications.",
+            "",
         )
-
-    # ========================================================
-    # GAMIFICATION ONLY
-    # ========================================================
 
     if gamification_only == "YES":
-
-        if (
-            serious_game == "UNCERTAIN"
-            or has_game_signal(text)
-        ):
-
-            return (
-                "UNCERTAIN",
-                (
-                    "Gamification was detected, but the metadata also "
-                    "contains possible game evidence."
-                ),
-                "RESCUE_GAME_AMBIGUITY",
-            )
-
         return (
             "EXCLUDE",
-            (
-                "The study appears to use gamification only rather "
-                "than a serious game."
-            ),
+            "The study concerns gamification only.",
             "",
         )
 
-    # ========================================================
-    # EXPLICIT TEXTUAL RESCUES
-    #
-    # If the model says NO while the actual metadata contains
-    # explicit terminology for that dimension, do not automatically
-    # discard the record.
-    # ========================================================
+    acquisition = contains_any(text, CALIBRATED_ACQUISITION_TERMS)
+    interaction = contains_any(text, CALIBRATED_INTERACTION_TERMS)
+    stimulation = contains_any(text, CALIBRATED_STIMULATION_TERMS)
+    assistive = contains_any(text, CALIBRATED_ASSISTIVE_TERMS)
 
+    # Rescue A: serious game + health + AI, missing IoT, acquisition signal.
+    if (
+        serious_game == "YES"
+        and health == "YES"
+        and ai == "YES"
+        and iot == "NO"
+        and acquisition
+    ):
+        return (
+            "UNCERTAIN",
+            "Serious game, health and AI are supported, with acquisition "
+            "or monitoring signals; connectivity requires full-text review.",
+            "RESGATE_IOT_3_DE_4",
+        )
+
+    # Rescue B: health + AI, interaction AND acquisition signals.
+    if (
+        health == "YES"
+        and ai == "YES"
+        and (serious_game == "NO" or iot == "NO")
+        and interaction
+        and acquisition
+    ):
+        return (
+            "UNCERTAIN",
+            "Health and AI are supported, with digital interaction and "
+            "acquisition signals; game or connectivity details need review.",
+            "RESGATE_MULTIMODAL",
+        )
+
+    # Rescue C: assistive platform AND cognitive/physical stimulation.
     if (
         serious_game == "NO"
-        and has_game_signal(text)
+        and health == "YES"
+        and ai in {"YES", "UNCERTAIN"}
+        and iot in {"EXPLICIT_IOT", "FUNCTIONALLY_COMPATIBLE"}
+        and stimulation
+        and assistive
     ):
-
         return (
             "UNCERTAIN",
-            (
-                "The LLM classified the game criterion as absent, "
-                "but title/abstract/keywords contain game-related "
-                "terminology."
-            ),
-            "RESCUE_GAME_EVIDENCE",
+            "An assistive health platform with IoT and cognitive or physical "
+            "stimulation is indicated; the game component needs review.",
+            "RESGATE_AAL_ESTIMULACAO",
         )
 
-    if (
-        health == "NO"
-        and has_health_signal(text)
+    # Core exclusions precede unresolved labels, as in the calibration.
+    for value, reason in (
+        (serious_game, "No sufficient evidence of a serious game in health."),
+        (health, "The study is outside the health context."),
+        (ai, "No sufficient evidence of AI."),
+        (iot, "No explicit or functionally compatible IoT is demonstrated."),
     ):
+        if value == "NO":
+            return "EXCLUDE", reason, ""
 
+    if "UNCERTAIN" in (
+        serious_game,
+        gamification_only,
+        health,
+        ai,
+        iot,
+        study_type,
+    ):
         return (
             "UNCERTAIN",
-            (
-                "The LLM classified the health criterion as absent, "
-                "but the metadata contains health-related evidence."
-            ),
-            "RESCUE_HEALTH_EVIDENCE",
-        )
-
-    if (
-        ai == "NO"
-        and has_ai_signal(text)
-    ):
-
-        return (
-            "UNCERTAIN",
-            (
-                "The LLM classified AI as absent, but explicit "
-                "AI-related terminology appears in the metadata."
-            ),
-            "RESCUE_AI_EVIDENCE",
-        )
-
-    if (
-        iot == "NO"
-        and (
-            has_iot_explicit_signal(text)
-            or
-            has_connected_architecture_signal(text)
-        )
-    ):
-
-        return (
-            "UNCERTAIN",
-            (
-                "The LLM classified IoT as absent, but the metadata "
-                "contains explicit IoT terminology or a connected "
-                "device/sensor architecture signal."
-            ),
-            "RESCUE_IOT_ARCHITECTURE",
-        )
-
-    # ========================================================
-    # 3-OF-4 CORE CRITERIA SAFETY RESCUE
-    #
-    # This protects studies where one dimension is not sufficiently
-    # described in the abstract but the remaining three criteria are
-    # strongly supported.
-    # ========================================================
-
-    positive_count = sum(
-        [
-            serious_game == "YES",
-            health == "YES",
-            ai == "YES",
-            iot_positive,
-        ]
-    )
-
-    core_no_count = sum(
-        [
-            serious_game == "NO",
-            health == "NO",
-            ai == "NO",
-            iot == "NO",
-        ]
-    )
-
-    if (
-        positive_count >= 3
-        and core_no_count >= 1
-    ):
-
-        return (
-            "UNCERTAIN",
-            (
-                "Three of the four core eligibility dimensions are "
-                "supported, while one dimension is reported as absent. "
-                "The record is preserved for human review."
-            ),
-            "RESCUE_3_OF_4",
-        )
-
-    # ========================================================
-    # MULTIMODAL / IMMERSIVE SYSTEM RESCUE
-    #
-    # Used only to prevent automatic exclusion when an immersive,
-    # intelligent and device-connected system is incompletely
-    # described in the abstract.
-    # ========================================================
-
-    if (
-        health == "YES"
-        and ai in {
-            "YES",
-            "UNCERTAIN",
-        }
-        and has_multimodal_signal(text)
-        and (
-            serious_game == "NO"
-            or iot == "NO"
-        )
-    ):
-
-        return (
-            "UNCERTAIN",
-            (
-                "The record describes a multimodal immersive "
-                "intelligent system, but one screening dimension is "
-                "insufficiently explicit in the metadata."
-            ),
-            "RESCUE_MULTIMODAL_SYSTEM",
-        )
-
-    # ========================================================
-    # AAL / ASSISTIVE ENVIRONMENT RESCUE
-    #
-    # Protects connected assistive-health systems where the game or AI
-    # component may only be described in the full text.
-    # ========================================================
-
-    if (
-        health == "YES"
-        and iot_positive
-        and ai in {
-            "YES",
-            "UNCERTAIN",
-        }
-        and serious_game == "NO"
-        and has_aal_signal(text)
-    ):
-
-        return (
-            "UNCERTAIN",
-            (
-                "The record describes an IoT-enabled assistive or "
-                "independent-living health environment, but the game "
-                "component cannot be resolved safely from metadata."
-            ),
-            "RESCUE_AAL_ASSISTIVE_SYSTEM",
-        )
-
-    # ========================================================
-    # UNCERTAINTY
-    # ========================================================
-
-    if (
-        serious_game == "UNCERTAIN"
-        or
-        health == "UNCERTAIN"
-        or
-        ai == "UNCERTAIN"
-        or
-        iot == "UNCERTAIN"
-        or
-        gamification_only == "UNCERTAIN"
-        or
-        study_type == "UNCERTAIN"
-    ):
-
-        return (
-            "UNCERTAIN",
-            (
-                "At least one eligibility criterion cannot be "
-                "determined safely from title, abstract and keywords."
-            ),
+            "At least one criterion requires human review of the full text.",
             "",
         )
-
-    # ========================================================
-    # CORE EXCLUSIONS
-    # ========================================================
-
-    if serious_game == "NO":
-
-        return (
-            "EXCLUDE",
-            (
-                "No sufficient evidence of a serious game or "
-                "equivalent game-based intervention."
-            ),
-            "",
-        )
-
-    if health == "NO":
-
-        return (
-            "EXCLUDE",
-            (
-                "No sufficient evidence of a health-related context."
-            ),
-            "",
-        )
-
-    if ai == "NO":
-
-        return (
-            "EXCLUDE",
-            (
-                "No sufficient evidence that artificial intelligence "
-                "is used in the proposed study or system."
-            ),
-            "",
-        )
-
-    if iot == "NO":
-
-        return (
-            "EXCLUDE",
-            (
-                "No explicit IoT or functionally compatible IoT "
-                "architecture is supported by the available metadata."
-            ),
-            "",
-        )
-
-    # ========================================================
-    # ALL CORE CRITERIA SATISFIED
-    # ========================================================
 
     return (
         "RETAIN",
-        (
-            "Title, abstract and keywords support serious game, "
-            "health, AI and IoT eligibility criteria."
-        ),
+        "The metadata supports serious game, health, AI and IoT criteria.",
         "",
     )
