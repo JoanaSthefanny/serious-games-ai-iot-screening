@@ -122,6 +122,7 @@ CANONICAL_COLUMNS = [
     "authors",
     "year",
     "publication",
+    "volume",
     "document_type",
     "doi",
     "abstract",
@@ -671,3 +672,28 @@ def build_title_key(
 
 # Initialize directories when the package is imported.
 ensure_project_directories()
+
+def normalize_volume(value):
+    """Compare volume identifiers consistently after Excel round trips."""
+    value = safe_text(value).casefold()
+    value = re.sub(r"^(\d+)\.0$", r"\1", value)
+    return " ".join(value.split())
+
+
+def title_match_is_compatible(existing, incoming):
+    """Do not merge a title match with conflicting volume evidence."""
+    if not normalize_title(existing.get("title", "")):
+        return False
+    if normalize_title(existing.get("title", "")) != normalize_title(incoming.get("title", "")):
+        return False
+    left = normalize_volume(existing.get("volume", ""))
+    right = normalize_volume(incoming.get("volume", ""))
+    if left and right and left != right:
+        return False
+    return True
+
+
+def find_unique_title_match(candidates, incoming):
+    """Ambiguous title matches are preserved rather than arbitrarily merged."""
+    compatible = [record for record in candidates if title_match_is_compatible(record, incoming)]
+    return compatible[0] if len(compatible) == 1 else None

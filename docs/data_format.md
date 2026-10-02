@@ -375,3 +375,7 @@ API_errors
 ```
 
 This structure supports auditing of both automated decisions and cases requiring human intervention.
+
+## Volume metadata
+
+`volume` is a canonical bibliographic field preserved in imported records and the master. Older tables without this field remain readable and receive an empty value. DOI matching retains priority. Title matching does not merge records when both volume identifiers are present and differ; an ambiguous title match is preserved. Different volumes of proceedings can therefore share a title without being discarded.

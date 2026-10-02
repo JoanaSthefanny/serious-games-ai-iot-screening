@@ -27,6 +27,7 @@ from . import (
     resolve_database_source_file,
     safe_text,
     standardize_dataframe,
+    title_match_is_compatible,
 )
 
 from .assign_master_ids import assign_master_ids
@@ -45,6 +46,7 @@ FILLABLE_METADATA_FIELDS = [
     "authors",
     "year",
     "publication",
+    "volume",
     "document_type",
     "doi",
     "abstract",
@@ -98,7 +100,7 @@ def load_master():
 # ============================================================
 
 def build_existing_indices(master):
-    """Builds DOI and normalized-title lookup dictionaries."""
+    """Builds DOI lookups and title-to-candidate-position lists."""
 
     doi_index = {}
     title_index = {}
@@ -111,7 +113,7 @@ def build_existing_indices(master):
             doi_index.setdefault(doi_key, index)
 
         if title_key:
-            title_index.setdefault(title_key, index)
+            title_index.setdefault(title_key, []).append(index)
 
     return doi_index, title_index
 
@@ -127,7 +129,9 @@ def index_record(records, position, doi_index, title_index):
         doi_index.setdefault(doi_key, position)
 
     if title_key:
-        title_index.setdefault(title_key, position)
+        positions = title_index.setdefault(title_key, [])
+        if position not in positions:
+            positions.append(position)
 
 
 # ============================================================
@@ -188,8 +192,8 @@ def update_database(master, database):
     """
     Adds new records and fills missing metadata from duplicate records.
 
-    Matching follows the existing policy: DOI first, normalized title
-    second. Returns updated_master, duplicate_records, added_count.
+    Matching uses DOI first, then a unique compatible title candidate.
+    Conflicting volumes are preserved. Returns updated_master, duplicate_records, added_count.
     """
 
     source_file = resolve_database_source_file(database)
@@ -238,8 +242,13 @@ def update_database(master, database):
             duplicate_reason = "DOI"
 
         elif title_key and title_key in title_index:
-            matched_position = title_index[title_key]
-            duplicate_reason = "TITLE"
+            compatible = [
+                position for position in title_index[title_key]
+                if title_match_is_compatible(records[position], record)
+            ]
+            if len(compatible) == 1:
+                matched_position = compatible[0]
+                duplicate_reason = "TITLE"
 
         if matched_position is not None:
             # This list includes both original and newly added records.

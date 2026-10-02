@@ -19,6 +19,7 @@ from data_management import (
     normalize_title,
     safe_text,
     standardize_dataframe,
+    find_unique_title_match,
 )
 
 
@@ -396,79 +397,62 @@ def bibtex_entry_to_dict(entry):
     return result
 
 
-def load_bibtex_file(file_path):
-    """
-    Loads BibTeX using either bibtexparser v1 or newer APIs.
-    """
+def load_bibtex_file(file_path, recover_compendex=False):
+    """Read v1/v2 BibTeX; validate rejected entries in Compendex mode.
 
+    Compendex exports can repeat the nonbibliographic copyright field.
+    In v2, recover only that known failure using the parsed field objects.
+    Other parser failures abort the import before existing outputs are saved.
+    """
     try:
         import bibtexparser
-
     except ImportError as error:
-
-        raise ImportError(
-            "bibtexparser is required to import BibTeX files."
-        ) from error
-
-    # --------------------------------------------------------
-    # bibtexparser v1
-    # --------------------------------------------------------
-
-    if hasattr(bibtexparser, "load"):
-
-        try:
-
-            with open(
-                file_path,
-                "r",
-                encoding="utf-8",
-                errors="replace",
-            ) as handle:
-
-                library = bibtexparser.load(
-                    handle
-                )
-
-            entries = getattr(
-                library,
-                "entries",
-                [],
-            )
-
-            if entries:
-
-                return [
-                    bibtex_entry_to_dict(entry)
-                    for entry in entries
-                ]
-
-        except Exception:
-            pass
-
-    # --------------------------------------------------------
-    # Newer bibtexparser
-    # --------------------------------------------------------
+        raise ImportError("bibtexparser is required to import BibTeX files.") from error
 
     if hasattr(bibtexparser, "parse_file"):
-
-        library = bibtexparser.parse_file(
-            str(file_path)
-        )
-
-        entries = getattr(
-            library,
-            "entries",
-            [],
-        )
-
-        return [
-            bibtex_entry_to_dict(entry)
-            for entry in entries
+        library = bibtexparser.parse_file(str(file_path))
+        if not recover_compendex:
+            # Keep other databases' established parser behavior unchanged.
+            return [bibtex_entry_to_dict(entry) for entry in library.entries]
+        ordered = [
+            (getattr(entry, "start_line", 0), bibtex_entry_to_dict(entry))
+            for entry in library.entries
         ]
+        recovered = 0
+        failures = []
+        for block in getattr(library, "failed_blocks", []):
+            keys = {str(key).casefold() for key in getattr(block, "duplicate_keys", set())}
+            entry = getattr(block, "ignore_error_block", None)
+            if keys == {"copyright"} and entry is not None and hasattr(entry, "fields"):
+                record = {"ID": entry.key, "ENTRYTYPE": entry.entry_type}
+                # Use fields, avoiding fields_dict on an entry with duplicates.
+                seen = set()
+                for field in entry.fields:
+                    name = str(field.key)
+                    if name.casefold() in seen:
+                        continue  # Only copyright can repeat in this branch.
+                    seen.add(name.casefold())
+                    record[name] = _field_object_to_value(field)
+                ordered.append((getattr(block, "start_line", 0), record))
+                recovered += 1
+            else:
+                line = getattr(block, "start_line", 0) + 1
+                failures.append(f"line {line}: {type(block).__name__}")
+        if failures:
+            raise ValueError(
+                f"BibTeX import aborted for {Path(file_path).name}: "
+                f"{len(failures)} rejected block(s). " + "; ".join(failures[:5])
+            )
+        if recovered:
+            print(f"Recovered {recovered} BibTeX entries with repeated copyright fields.")
+        return [record for _, record in sorted(ordered, key=lambda item: item[0])]
 
-    raise RuntimeError(
-        "The installed bibtexparser version could not be used."
-    )
+    if hasattr(bibtexparser, "load"):
+        with open(file_path, "r", encoding="utf-8", errors="replace") as handle:
+            library = bibtexparser.load(handle)
+        return [bibtex_entry_to_dict(entry) for entry in library.entries]
+
+    raise RuntimeError("The installed bibtexparser version could not be used.")
 
 
 def bibtex_values(
@@ -553,7 +537,8 @@ def bibtex_files_to_dataframe(
     for file_path in files:
 
         entries = load_bibtex_file(
-            file_path
+            file_path,
+            recover_compendex=(database == "compendex"),
         )
 
         for entry in entries:
@@ -665,6 +650,16 @@ def bibtex_files_to_dataframe(
                 ],
             )
 
+            if database == "compendex":
+                # Engineering Village puts additional index terms in note.
+                # This interpretation is specific to its export format.
+                keywords = combine_bibtex_values(
+                    entry,
+                    ["keywords", "keyword", "key", "note"],
+                )
+
+            volume = first_bibtex_value(entry, ["volume"])
+
             url = first_bibtex_value(
                 entry,
                 [
@@ -695,6 +690,9 @@ def bibtex_files_to_dataframe(
 
                     "publication":
                         publication,
+
+                    "volume":
+                        volume,
 
                     "document_type":
                         document_type,
@@ -1034,7 +1032,7 @@ def deduplicate_records(dataframe):
 
     Priority:
         1. DOI
-        2. normalized title
+        2. a unique normalized-title match with compatible volume
     """
 
     unique_records = []
@@ -1084,10 +1082,8 @@ def deduplicate_records(dataframe):
 
             duplicate_reason = "TITLE"
 
-            matched_record = (
-                title_seen[
-                    title_key
-                ]
+            matched_record = find_unique_title_match(
+                title_seen[title_key], record,
             )
 
         if matched_record is not None:
@@ -1095,7 +1091,7 @@ def deduplicate_records(dataframe):
             # Preserve the first record's identity and nonempty values.
             # Recover bibliographic metadata before discarding the duplicate.
             for field in (
-                "title", "authors", "year", "publication", "document_type",
+                "title", "authors", "year", "publication", "volume", "document_type",
                 "doi", "abstract", "keywords", "url",
             ):
                 if not safe_text(matched_record.get(field, "")):
@@ -1107,7 +1103,9 @@ def deduplicate_records(dataframe):
             if doi_key:
                 doi_seen.setdefault(doi_key, matched_record)
             if title_key:
-                title_seen.setdefault(title_key, matched_record)
+                candidates = title_seen.setdefault(title_key, [])
+                if not any(candidate is matched_record for candidate in candidates):
+                    candidates.append(matched_record)
 
             duplicate = (
                 record.copy()
@@ -1149,9 +1147,7 @@ def deduplicate_records(dataframe):
 
         if title_key:
 
-            title_seen[
-                title_key
-            ] = record
+            title_seen.setdefault(title_key, []).append(record)
 
     return (
         pd.DataFrame(

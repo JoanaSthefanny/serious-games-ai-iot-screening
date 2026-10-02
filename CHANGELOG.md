@@ -12,6 +12,10 @@ The project follows a simplified versioning approach for the public research sof
 
 ### Fixed
 
+- Recover Compendex BibTeX v2 entries rejected only for repeated copyright fields; abort its import on other rejected blocks.
+- Import Compendex index terms from key and note.
+- Preserve volume metadata and avoid title-only merging when volume identifiers conflict or the match is ambiguous.
+
 - Preserve existing outputs when an import produces no records.
 - Preserve empty-table columns and recover missing bibliographic metadata from internal duplicates.
 - Return imported records from all six importers and stop the complete workflow after a failed or empty import.
