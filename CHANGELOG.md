@@ -15,9 +15,14 @@ Historical research results retain their recorded configuration identifiers. Sof
 ### Fixed
 
 - Recover Compendex BibTeX v2 entries rejected only for repeated copyright fields; stop the import on other rejected blocks.
+- Abort BibTeX v2 imports for every supported database when rejected blocks remain, preventing silent partial imports from overwriting existing processed outputs.
+- Keep recovery of repeated copyright fields restricted to Compendex exports.
 - Recover Compendex index terms from `key` and `note`.
 - Preserve volume metadata and avoid title-only merging when volume identifiers conflict or the match is ambiguous.
+- Recover volume from shared CSV/XLSX column aliases even when the database-specific column map omits it; preserve explicitly mapped values and fill only missing values without modifying the caller's map.
+- Preserve PubMed NBIB volume metadata from the `VI` tag; leave the field empty when the tag is unavailable.
 - Prevent title-based merging when both records have non-empty, different normalized DOIs.
+- Reuse the master-update deduplication rules when creating a master dataset, including DOI priority, unique compatible title matching, and recovery of missing metadata.
 - Match Springer checkpoint records by DOI first, then by a unique compatible normalized-title candidate; preserve separate records when title candidates have conflicting DOIs or volumes, or when the match is ambiguous.
 - Preserve existing Springer abstracts and API checkpoint metadata while recovering missing bibliographic fields and registering recovered DOIs for subsequent matches.
 - Return the Springer enrichment dataset only after the current collection has been saved successfully, including newly imported records and previously recovered metadata.
@@ -27,6 +32,11 @@ Historical research results retain their recorded configuration identifiers. Sof
 - Preserve empty-table columns during internal deduplication.
 - Recover missing bibliographic metadata from internal duplicates.
 - Return imported records from all six importers and stop the complete workflow after a failed or empty import.
+- Stop master creation without modifying existing outputs when no valid records are available.
+- Back up the existing master workbook and duplicate report before replacing them during master creation.
+- Stage both master-creation workbooks before replacing either output; use atomic replacement for each individual file and clean up temporary workbooks after success or failure.
+- Propagate master-creation processing, backup, and write failures instead of reporting success; preserve recovery backups when a later replacement fails.
+- Refresh the master-creation duplicate report even when there are no duplicates, retaining its headers instead of leaving a stale report active.
 - Return the master dataset only after the master workbook and duplicate report have been saved successfully.
 - Stop the complete workflow before screening when the master update fails, is interrupted, or returns an empty or invalid result.
 - Stop on checkpoint write failures without converting successful classifications into API errors.
@@ -50,13 +60,18 @@ Historical research results retain their recorded configuration identifiers. Sof
 ### Added
 
 - English translation of screening prompt v1.9 for transparency, reproducibility, and accessibility, with a note identifying the Portuguese prompt as the version used for screening and explaining that translated prompts may produce different model responses.
-- An offline regression suite containing 27 tests, using synthetic records, temporary files, and mocked external operations.
+- An offline regression suite containing 41 tests, using synthetic records, temporary files, and mocked external operations.
 - Regression coverage for import safety, metadata recovery, Compendex parsing, volume preservation, master-dataset updates, checkpoint failures, and screening decision precedence.
 - Regression tests ensuring that records with the same title and different DOIs remain separate.
 - Springer regression tests covering conflicting DOIs, distinct volumes, ambiguous title matches, and metadata recovery through a unique compatible match.
 - Workflow regression tests ensuring that screening does not start after an invalid master-update result, a simulated write failure, or a user interruption, and that successful workflows continue for all six databases.
 - Springer workflow regression tests ensuring that invalid enrichment results, exceptions, interruptions, and missing API keys stop the workflow before the master update and screening.
 - Regression coverage verifying that Springer enrichment saves newly imported records together with an existing checkpoint, returns the saved collection, and preserves the previous checkpoint when atomic replacement fails.
+- Fourteen additional regression tests in `tests/test_final_import_and_master_regressions.py`.
+- Tabular regression coverage for volume aliases, explicit mapping priority, missing values, preservation of the caller's column map, and prevention of merging records with distinct volumes.
+- PubMed NBIB regression coverage for volume preservation, missing volumes, multiline abstracts, DOI extraction, URL construction, and deduplication.
+- BibTeX v2 regression coverage for rejected entries across all five BibTeX importers, Compendex-only copyright recovery, and preservation of existing outputs after a rejected import.
+- Master-creation regression coverage for missing or empty inputs, backups of both outputs, empty duplicate-report headers, temporary-file cleanup, and failures during report writing, backup creation, and either file replacement.
 
 ### Planned
 

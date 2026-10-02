@@ -38,7 +38,6 @@ def parse_nbib_file(file_path):
     """
     Parses PubMed NBIB / MEDLINE format.
     """
-
     records = []
 
     current_record = {}
@@ -50,24 +49,16 @@ def parse_nbib_file(file_path):
         encoding="utf-8",
         errors="replace",
     ) as handle:
-
         for raw_line in handle:
-
-            line = raw_line.rstrip(
-                "\r\n"
-            )
+            line = raw_line.rstrip("\r\n")
 
             # ------------------------------------------------
             # END OF RECORD
             # ------------------------------------------------
 
             if not line.strip():
-
                 if current_record:
-
-                    records.append(
-                        current_record
-                    )
+                    records.append(current_record)
 
                     current_record = {}
                     current_tag = None
@@ -84,25 +75,13 @@ def parse_nbib_file(file_path):
             )
 
             if match:
-
                 tag = match.group(1)
-
-                value = match.group(
-                    2
-                ).strip()
+                value = match.group(2).strip()
 
                 current_tag = tag
 
-                current_record.setdefault(
-                    tag,
-                    [],
-                )
-
-                current_record[
-                    tag
-                ].append(
-                    value
-                )
+                current_record.setdefault(tag, [])
+                current_record[tag].append(value)
 
                 continue
 
@@ -110,23 +89,13 @@ def parse_nbib_file(file_path):
             # CONTINUATION LINE
             # ------------------------------------------------
 
-            if (
-                current_tag
-                and line.startswith(" ")
-            ):
-
-                continuation = (
-                    line.strip()
-                )
+            if current_tag and line.startswith(" "):
+                continuation = line.strip()
 
                 if continuation:
-
-                    values = current_record[
-                        current_tag
-                    ]
+                    values = current_record[current_tag]
 
                     if values:
-
                         values[-1] = (
                             values[-1]
                             + " "
@@ -134,10 +103,7 @@ def parse_nbib_file(file_path):
                         )
 
     if current_record:
-
-        records.append(
-            current_record
-        )
+        records.append(current_record)
 
     return records
 
@@ -146,63 +112,41 @@ def parse_nbib_file(file_path):
 # NBIB UTILITIES
 # ============================================================
 
-def first_tag(
-    record,
-    tag,
-):
-
-    values = record.get(
-        tag,
-        [],
-    )
+def first_tag(record, tag):
+    """
+    Returns the first non-cleaned tag value as safe text.
+    """
+    values = record.get(tag, [])
 
     if not values:
         return ""
 
-    return safe_text(
-        values[0]
-    )
+    return safe_text(values[0])
 
 
-def tag_values(
-    record,
-    tag,
-):
-
+def tag_values(record, tag):
+    """
+    Returns non-empty values for a tag.
+    """
     return [
         safe_text(value)
-        for value in record.get(
-            tag,
-            [],
-        )
+        for value in record.get(tag, [])
         if safe_text(value)
     ]
 
 
-def join_tags(
-    record,
-    tags,
-    separator="; ",
-):
+def join_tags(record, tags, separator="; "):
     """
-    Combines values from multiple NBIB tags.
+    Combines unique values from multiple NBIB tags.
     """
-
     combined = []
 
     for tag in tags:
-
-        for value in tag_values(
-            record,
-            tag,
-        ):
-
+        for value in tag_values(record, tag):
             if value not in combined:
                 combined.append(value)
 
-    return separator.join(
-        combined
-    )
+    return separator.join(combined)
 
 
 # ============================================================
@@ -210,18 +154,15 @@ def join_tags(
 # ============================================================
 
 def nbib_records_to_dataframe(records):
+    """
+    Converts PubMed NBIB records into importer metadata.
 
+    VI contains the publication volume. Missing volumes remain empty.
+    """
     output = []
 
-    for sequence, record in enumerate(
-        records,
-        start=1,
-    ):
-
-        pmid = first_tag(
-            record,
-            "PMID",
-        )
+    for sequence, record in enumerate(records, start=1):
+        pmid = first_tag(record, "PMID")
 
         source_id = (
             pmid
@@ -229,41 +170,24 @@ def nbib_records_to_dataframe(records):
             else f"PUBMED-{sequence:04d}"
         )
 
-        title = first_tag(
-            record,
-            "TI",
-        )
+        title = first_tag(record, "TI")
 
         authors = (
-            join_tags(
-                record,
-                ["FAU"],
-            )
-            or
-            join_tags(
-                record,
-                ["AU"],
-            )
+            join_tags(record, ["FAU"])
+            or join_tags(record, ["AU"])
         )
 
         year = clean_year(
-            first_tag(
-                record,
-                "DP",
-            )
+            first_tag(record, "DP")
         )
 
         publication = (
-            first_tag(
-                record,
-                "JT",
-            )
-            or
-            first_tag(
-                record,
-                "TA",
-            )
+            first_tag(record, "JT")
+            or first_tag(record, "TA")
         )
+
+        # VI = Volume.
+        volume = first_tag(record, "VI")
 
         document_type = join_tags(
             record,
@@ -298,15 +222,8 @@ def nbib_records_to_dataframe(records):
         # ----------------------------------------------------
 
         doi = extract_doi_from_values(
-            tag_values(
-                record,
-                "LID",
-            )
-            +
-            tag_values(
-                record,
-                "AID",
-            )
+            tag_values(record, "LID")
+            + tag_values(record, "AID")
         )
 
         url = (
@@ -317,52 +234,24 @@ def nbib_records_to_dataframe(records):
 
         output.append(
             {
-                "source_id":
-                    source_id,
-
-                "database":
-                    DATABASE_NAMES[
-                        DATABASE
-                    ],
-
-                "title":
-                    title,
-
-                "authors":
-                    authors,
-
-                "year":
-                    year,
-
-                "publication":
-                    publication,
-
-                "document_type":
-                    document_type,
-
-                "doi":
-                    doi,
-
-                "abstract":
-                    abstract,
-
-                "keywords":
-                    keywords,
-
-                "url":
-                    url,
-
-                "metadata_status":
-                    "IMPORTED",
-
-                "metadata_source":
-                    "PubMed NBIB export",
+                "source_id": source_id,
+                "database": DATABASE_NAMES[DATABASE],
+                "title": title,
+                "authors": authors,
+                "year": year,
+                "publication": publication,
+                "volume": volume,
+                "document_type": document_type,
+                "doi": doi,
+                "abstract": abstract,
+                "keywords": keywords,
+                "url": url,
+                "metadata_status": "IMPORTED",
+                "metadata_source": "PubMed NBIB export",
             }
         )
 
-    return pd.DataFrame(
-        output
-    )
+    return pd.DataFrame(output)
 
 
 # ============================================================
@@ -370,18 +259,9 @@ def nbib_records_to_dataframe(records):
 # ============================================================
 
 def main():
-
-    print(
-        "=" * 70
-    )
-
-    print(
-        "PUBMED IMPORT"
-    )
-
-    print(
-        "=" * 70
-    )
+    print("=" * 70)
+    print("PUBMED IMPORT")
+    print("=" * 70)
 
     nbib_files = discover_files(
         DATABASE,
@@ -393,50 +273,25 @@ def main():
         [".bib"],
     )
 
-    if (
-        not nbib_files
-        and not bib_files
-    ):
-
-        print(
-            "\nNo PubMed export files were found."
-        )
-
-        print(
-            "Supported formats: .nbib and .bib"
-        )
-
-        print(
-            "Place files inside data/raw/pubmed/"
-        )
-
+    if not nbib_files and not bib_files:
+        print("\nNo PubMed export files were found.")
+        print("Supported formats: .nbib and .bib")
+        print("Place files inside data/raw/pubmed/")
         return
 
     frames = []
 
     for file in nbib_files:
+        print(f"\nReading NBIB: {file.name}")
 
-        print(
-            f"\nReading NBIB: "
-            f"{file.name}"
-        )
-
-        records = parse_nbib_file(
-            file
-        )
+        records = parse_nbib_file(file)
 
         frames.append(
-            nbib_records_to_dataframe(
-                records
-            )
+            nbib_records_to_dataframe(records)
         )
 
     if bib_files:
-
-        print(
-            f"\nBibTeX files found: "
-            f"{len(bib_files)}"
-        )
+        print(f"\nBibTeX files found: {len(bib_files)}")
 
         frames.append(
             bibtex_files_to_dataframe(
@@ -446,11 +301,7 @@ def main():
         )
 
     if not frames:
-
-        print(
-            "\nNo records were extracted."
-        )
-
+        print("\nNo records were extracted.")
         return
 
     dataframe = pd.concat(

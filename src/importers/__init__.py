@@ -31,7 +31,6 @@ IMPORTERS_DIR = Path(__file__).resolve().parent
 SRC_DIR = IMPORTERS_DIR.parent
 PROJECT_ROOT = SRC_DIR.parent
 
-
 RAW_DATABASE_DIRS = {
     "ieee": RAW_DIR / "ieee",
     "pubmed": RAW_DIR / "pubmed",
@@ -40,7 +39,6 @@ RAW_DATABASE_DIRS = {
     "compendex": RAW_DIR / "compendex",
     "springer": RAW_DIR / "springer",
 }
-
 
 OUTPUT_FILES = {
     database: PROCESSED_DIR / f"{database}_records.xlsx"
@@ -67,7 +65,6 @@ def extract_doi_from_text(value):
         https://doi.org/10.1007/s11036-025-02473-6
         DOI: 10.1109/ACCESS.2024.1234567
     """
-
     value = safe_text(value)
 
     if not value:
@@ -81,9 +78,7 @@ def extract_doi_from_text(value):
     doi = match.group(0)
 
     # Remove punctuation commonly introduced by citations/URLs.
-    doi = doi.rstrip(
-        ".,;:]}>'\""
-    )
+    doi = doi.rstrip(".,;:]}>'\"")
 
     # Remove a closing parenthesis only when clearly trailing.
     if doi.endswith(")") and doi.count("(") < doi.count(")"):
@@ -96,7 +91,6 @@ def extract_doi_from_values(values):
     """
     Searches multiple values for the first valid DOI.
     """
-
     for value in values:
         doi = extract_doi_from_text(value)
 
@@ -110,7 +104,6 @@ def recover_missing_dois(dataframe):
     """
     Recovers missing DOIs from canonical fields such as URL or source ID.
     """
-
     df = dataframe.copy()
 
     if "doi" not in df.columns:
@@ -123,7 +116,6 @@ def recover_missing_dois(dataframe):
     ]
 
     for index in df.index:
-
         current_doi = extract_doi_from_text(
             df.at[index, "doi"]
         )
@@ -135,15 +127,10 @@ def recover_missing_dois(dataframe):
         values = []
 
         for column in candidate_columns:
-
             if column in df.columns:
-                values.append(
-                    df.at[index, column]
-                )
+                values.append(df.at[index, column])
 
-        recovered = extract_doi_from_values(
-            values
-        )
+        recovered = extract_doi_from_values(values)
 
         if recovered:
             df.at[index, "doi"] = recovered
@@ -159,7 +146,6 @@ def ensure_database_directory(database):
     """
     Creates data/raw/<database>/ when necessary.
     """
-
     if database not in RAW_DATABASE_DIRS:
         raise ValueError(
             f"Unknown database: {database}"
@@ -184,17 +170,11 @@ def ensure_database_directory(database):
 # FILE DISCOVERY
 # ============================================================
 
-def discover_files(
-    database,
-    extensions,
-):
+def discover_files(database, extensions):
     """
     Finds supported files inside data/raw/<database>/.
     """
-
-    directory = ensure_database_directory(
-        database
-    )
+    directory = ensure_database_directory(database)
 
     normalized_extensions = {
         extension.lower()
@@ -208,8 +188,7 @@ def discover_files(
         for file in directory.iterdir()
         if (
             file.is_file()
-            and file.suffix.lower()
-            in normalized_extensions
+            and file.suffix.lower() in normalized_extensions
         )
     ]
 
@@ -227,22 +206,15 @@ def clean_bibtex_value(value):
     """
     Performs light BibTeX cleanup without changing scientific content.
     """
-
     value = safe_text(value)
 
     if not value:
         return ""
 
-    if (
-        value.startswith("{")
-        and value.endswith("}")
-    ):
+    if value.startswith("{") and value.endswith("}"):
         value = value[1:-1].strip()
 
-    if (
-        value.startswith('"')
-        and value.endswith('"')
-    ):
+    if value.startswith('"') and value.endswith('"'):
         value = value[1:-1].strip()
 
     value = (
@@ -252,11 +224,7 @@ def clean_bibtex_value(value):
         .replace("\t", " ")
     )
 
-    value = re.sub(
-        r"\s+",
-        " ",
-        value,
-    )
+    value = re.sub(r"\s+", " ", value)
 
     return value.strip()
 
@@ -265,7 +233,6 @@ def clean_year(value):
     """
     Extracts a four-digit year when possible.
     """
-
     value = safe_text(value)
 
     match = re.search(
@@ -287,15 +254,11 @@ def _field_object_to_value(field):
     """
     Extracts text from different bibtexparser field representations.
     """
-
     if isinstance(field, str):
         return field
 
     if hasattr(field, "value"):
-        return getattr(
-            field,
-            "value",
-        )
+        return getattr(field, "value")
 
     return field
 
@@ -304,7 +267,6 @@ def bibtex_entry_to_dict(entry):
     """
     Converts different bibtexparser entry representations into dicts.
     """
-
     if isinstance(entry, dict):
         return dict(entry)
 
@@ -314,13 +276,8 @@ def bibtex_entry_to_dict(entry):
         "key",
         "citation_key",
     ]:
-
         if hasattr(entry, attribute):
-
-            value = getattr(
-                entry,
-                attribute,
-            )
+            value = getattr(entry, attribute)
 
             if value:
                 result["ID"] = str(value)
@@ -330,63 +287,31 @@ def bibtex_entry_to_dict(entry):
         "entry_type",
         "type",
     ]:
-
         if hasattr(entry, attribute):
-
-            value = getattr(
-                entry,
-                attribute,
-            )
+            value = getattr(entry, attribute)
 
             if value:
                 result["ENTRYTYPE"] = str(value)
                 break
 
     if hasattr(entry, "fields_dict"):
-
-        fields_dict = getattr(
-            entry,
-            "fields_dict",
-        )
+        fields_dict = getattr(entry, "fields_dict")
 
         if isinstance(fields_dict, dict):
-
             for key, value in fields_dict.items():
-
-                result[str(key)] = (
-                    _field_object_to_value(value)
-                )
+                result[str(key)] = _field_object_to_value(value)
 
     if hasattr(entry, "fields"):
-
-        fields = getattr(
-            entry,
-            "fields",
-        )
+        fields = getattr(entry, "fields")
 
         try:
-
             for field in fields:
-
                 field_key = (
-                    getattr(
-                        field,
-                        "key",
-                        None,
-                    )
-                    or
-                    getattr(
-                        field,
-                        "name",
-                        None,
-                    )
+                    getattr(field, "key", None)
+                    or getattr(field, "name", None)
                 )
 
-                field_value = getattr(
-                    field,
-                    "value",
-                    None,
-                )
+                field_value = getattr(field, "value", None)
 
                 if field_key:
                     result[str(field_key)] = field_value
@@ -398,151 +323,197 @@ def bibtex_entry_to_dict(entry):
 
 
 def load_bibtex_file(file_path, recover_compendex=False):
-    """Read v1/v2 BibTeX; validate rejected entries in Compendex mode.
+    """
+    Reads v1/v2 BibTeX files.
 
-    Compendex exports can repeat the nonbibliographic copyright field.
-    In v2, recover only that known failure using the parsed field objects.
-    Other parser failures abort the import before existing outputs are saved.
+    With bibtexparser v2, rejected blocks abort imports for every
+    database before existing output files can be overwritten.
+
+    Compendex mode recovers only entries rejected exclusively because
+    of repeated copyright fields. Other rejected blocks still abort.
+
+    The v1 path retains its existing parser behavior.
     """
     try:
         import bibtexparser
+
     except ImportError as error:
-        raise ImportError("bibtexparser is required to import BibTeX files.") from error
+        raise ImportError(
+            "bibtexparser is required to import BibTeX files."
+        ) from error
 
     if hasattr(bibtexparser, "parse_file"):
         library = bibtexparser.parse_file(str(file_path))
-        if not recover_compendex:
-            # Keep other databases' established parser behavior unchanged.
-            return [bibtex_entry_to_dict(entry) for entry in library.entries]
+
         ordered = [
-            (getattr(entry, "start_line", 0), bibtex_entry_to_dict(entry))
+            (
+                getattr(entry, "start_line", 0),
+                bibtex_entry_to_dict(entry),
+            )
             for entry in library.entries
         ]
+
         recovered = 0
         failures = []
+
+        # Validate rejected blocks for every database.
         for block in getattr(library, "failed_blocks", []):
-            keys = {str(key).casefold() for key in getattr(block, "duplicate_keys", set())}
-            entry = getattr(block, "ignore_error_block", None)
-            if keys == {"copyright"} and entry is not None and hasattr(entry, "fields"):
-                record = {"ID": entry.key, "ENTRYTYPE": entry.entry_type}
-                # Use fields, avoiding fields_dict on an entry with duplicates.
+            keys = {
+                str(key).casefold()
+                for key in getattr(
+                    block,
+                    "duplicate_keys",
+                    set(),
+                )
+            }
+
+            entry = getattr(
+                block,
+                "ignore_error_block",
+                None,
+            )
+
+            recoverable = (
+                recover_compendex
+                and keys == {"copyright"}
+                and entry is not None
+                and hasattr(entry, "fields")
+            )
+
+            if recoverable:
+                record = {
+                    "ID": entry.key,
+                    "ENTRYTYPE": entry.entry_type,
+                }
+
+                # Avoid fields_dict on entries with duplicate fields.
                 seen = set()
+
                 for field in entry.fields:
                     name = str(field.key)
-                    if name.casefold() in seen:
-                        continue  # Only copyright can repeat in this branch.
-                    seen.add(name.casefold())
+                    normalized_name = name.casefold()
+
+                    if normalized_name in seen:
+                        # Only copyright can repeat in this branch.
+                        continue
+
+                    seen.add(normalized_name)
+
                     record[name] = _field_object_to_value(field)
-                ordered.append((getattr(block, "start_line", 0), record))
+
+                ordered.append(
+                    (
+                        getattr(block, "start_line", 0),
+                        record,
+                    )
+                )
+
                 recovered += 1
+
             else:
                 line = getattr(block, "start_line", 0) + 1
-                failures.append(f"line {line}: {type(block).__name__}")
+
+                failures.append(
+                    f"line {line}: {type(block).__name__}"
+                )
+
         if failures:
             raise ValueError(
                 f"BibTeX import aborted for {Path(file_path).name}: "
-                f"{len(failures)} rejected block(s). " + "; ".join(failures[:5])
+                f"{len(failures)} rejected block(s). "
+                + "; ".join(failures[:5])
             )
+
         if recovered:
-            print(f"Recovered {recovered} BibTeX entries with repeated copyright fields.")
-        return [record for _, record in sorted(ordered, key=lambda item: item[0])]
+            print(
+                f"Recovered {recovered} BibTeX entries "
+                "with repeated copyright fields."
+            )
+
+        return [
+            record
+            for _, record in sorted(
+                ordered,
+                key=lambda item: item[0],
+            )
+        ]
 
     if hasattr(bibtexparser, "load"):
-        with open(file_path, "r", encoding="utf-8", errors="replace") as handle:
+        with open(
+            file_path,
+            "r",
+            encoding="utf-8",
+            errors="replace",
+        ) as handle:
             library = bibtexparser.load(handle)
-        return [bibtex_entry_to_dict(entry) for entry in library.entries]
 
-    raise RuntimeError("The installed bibtexparser version could not be used.")
+        return [
+            bibtex_entry_to_dict(entry)
+            for entry in library.entries
+        ]
+
+    raise RuntimeError(
+        "The installed bibtexparser version could not be used."
+    )
 
 
-def bibtex_values(
-    fields,
-    names,
-):
+def bibtex_values(fields, names):
     """
     Returns all non-empty values matching BibTeX field names.
     """
-
     lowered = {
-        str(key).lower():
-            clean_bibtex_value(value)
+        str(key).lower(): clean_bibtex_value(value)
         for key, value in fields.items()
     }
 
     output = []
 
     for name in names:
-
         value = lowered.get(
             name.lower(),
             "",
         )
 
-        if (
-            value
-            and value not in output
-        ):
+        if value and value not in output:
             output.append(value)
 
     return output
 
 
-def first_bibtex_value(
-    fields,
-    names,
-):
+def first_bibtex_value(fields, names):
     """
     Returns the first matching BibTeX value.
     """
-
-    values = bibtex_values(
-        fields,
-        names,
-    )
+    values = bibtex_values(fields, names)
 
     return values[0] if values else ""
 
 
-def combine_bibtex_values(
-    fields,
-    names,
-    separator="; ",
-):
+def combine_bibtex_values(fields, names, separator="; "):
     """
     Combines multiple BibTeX fields.
 
     Useful for multiple keyword fields.
     """
-
-    values = bibtex_values(
-        fields,
-        names,
-    )
+    values = bibtex_values(fields, names)
 
     return separator.join(values)
 
 
-def bibtex_files_to_dataframe(
-    files,
-    database,
-):
+def bibtex_files_to_dataframe(files, database):
     """
     Converts one or more BibTeX files into canonical metadata.
     """
-
     records = []
-
     sequence = 1
 
     for file_path in files:
-
         entries = load_bibtex_file(
             file_path,
             recover_compendex=(database == "compendex"),
         )
 
         for entry in entries:
-
             source_id = first_bibtex_value(
                 entry,
                 [
@@ -553,7 +524,6 @@ def bibtex_files_to_dataframe(
             )
 
             if not source_id:
-
                 source_id = (
                     f"{database.upper()}-"
                     f"{sequence:04d}"
@@ -611,13 +581,10 @@ def bibtex_files_to_dataframe(
                 ["doi"],
             )
 
-            doi = extract_doi_from_text(
-                explicit_doi
-            )
+            doi = extract_doi_from_text(explicit_doi)
 
             # DOI may appear in URL or another BibTeX field.
             if not doi:
-
                 doi = extract_doi_from_values(
                     entry.values()
                 )
@@ -651,14 +618,16 @@ def bibtex_files_to_dataframe(
             )
 
             if database == "compendex":
-                # Engineering Village puts additional index terms in note.
-                # This interpretation is specific to its export format.
+                # Specific interpretation of Engineering Village exports.
                 keywords = combine_bibtex_values(
                     entry,
                     ["keywords", "keyword", "key", "note"],
                 )
 
-            volume = first_bibtex_value(entry, ["volume"])
+            volume = first_bibtex_value(
+                entry,
+                ["volume"],
+            )
 
             url = first_bibtex_value(
                 entry,
@@ -670,61 +639,32 @@ def bibtex_files_to_dataframe(
 
             records.append(
                 {
-                    "source_id":
-                        source_id,
-
-                    "database":
-                        DATABASE_NAMES.get(
-                            database,
-                            database,
-                        ),
-
-                    "title":
-                        title,
-
-                    "authors":
-                        authors,
-
-                    "year":
-                        clean_year(year),
-
-                    "publication":
-                        publication,
-
-                    "volume":
-                        volume,
-
-                    "document_type":
-                        document_type,
-
-                    "doi":
-                        doi,
-
-                    "abstract":
-                        abstract,
-
-                    "keywords":
-                        keywords,
-
-                    "url":
-                        url,
-
-                    "metadata_status":
-                        "IMPORTED",
-
-                    "metadata_source":
-                        (
-                            f"{DATABASE_NAMES.get(database, database)} "
-                            f"export"
-                        ),
+                    "source_id": source_id,
+                    "database": DATABASE_NAMES.get(
+                        database,
+                        database,
+                    ),
+                    "title": title,
+                    "authors": authors,
+                    "year": clean_year(year),
+                    "publication": publication,
+                    "volume": volume,
+                    "document_type": document_type,
+                    "doi": doi,
+                    "abstract": abstract,
+                    "keywords": keywords,
+                    "url": url,
+                    "metadata_status": "IMPORTED",
+                    "metadata_source": (
+                        f"{DATABASE_NAMES.get(database, database)} "
+                        "export"
+                    ),
                 }
             )
 
             sequence += 1
 
-    return pd.DataFrame(
-        records
-    )
+    return pd.DataFrame(records)
 
 
 # ============================================================
@@ -735,24 +675,19 @@ def read_tabular_file(file_path):
     """
     Reads CSV, TSV or Excel files with encoding fallback.
     """
-
     suffix = file_path.suffix.lower()
 
     if suffix in {
         ".xlsx",
         ".xls",
     }:
-
-        return pd.read_excel(
-            file_path
-        )
+        return pd.read_excel(file_path)
 
     if suffix in {
         ".csv",
         ".txt",
         ".tsv",
     }:
-
         encodings = [
             "utf-8-sig",
             "utf-8",
@@ -763,9 +698,7 @@ def read_tabular_file(file_path):
         last_error = None
 
         for encoding in encodings:
-
             try:
-
                 return pd.read_csv(
                     file_path,
                     sep=None,
@@ -789,14 +722,10 @@ def read_tabular_file(file_path):
 # COLUMN DISCOVERY
 # ============================================================
 
-def find_columns(
-    dataframe,
-    aliases,
-):
+def find_columns(dataframe, aliases):
     """
     Finds all columns matching any alias.
     """
-
     normalized_aliases = {
         normalize_header(alias)
         for alias in aliases
@@ -805,23 +734,15 @@ def find_columns(
     return [
         column
         for column in dataframe.columns
-        if normalize_header(column)
-        in normalized_aliases
+        if normalize_header(column) in normalized_aliases
     ]
 
 
-def extract_first_value_series(
-    dataframe,
-    aliases,
-):
+def extract_first_value_series(dataframe, aliases):
     """
     Combines aliases row-by-row using the first non-empty value.
     """
-
-    columns = find_columns(
-        dataframe,
-        aliases,
-    )
+    columns = find_columns(dataframe, aliases)
 
     result = pd.Series(
         "",
@@ -830,7 +751,6 @@ def extract_first_value_series(
     )
 
     for column in columns:
-
         values = (
             dataframe[column]
             .fillna("")
@@ -846,9 +766,7 @@ def extract_first_value_series(
             == ""
         )
 
-        result.loc[missing] = (
-            values.loc[missing]
-        )
+        result.loc[missing] = values.loc[missing]
 
     return result
 
@@ -857,11 +775,9 @@ def _combine_unique_values(values):
     """
     Combines unique non-empty strings using '; '.
     """
-
     output = []
 
     for value in values:
-
         value = safe_text(value)
 
         if not value:
@@ -873,36 +789,25 @@ def _combine_unique_values(values):
     return "; ".join(output)
 
 
-def extract_combined_series(
-    dataframe,
-    aliases,
-):
+def extract_combined_series(dataframe, aliases):
     """
     Combines all matching columns row-by-row.
 
     This is mainly used for keyword fields.
     """
-
-    columns = find_columns(
-        dataframe,
-        aliases,
-    )
+    columns = find_columns(dataframe, aliases)
 
     if not columns:
-
         return pd.Series(
             "",
             index=dataframe.index,
             dtype="object",
         )
 
-    return dataframe[
-        columns
-    ].apply(
-        lambda row:
-            _combine_unique_values(
-                row.tolist()
-            ),
+    return dataframe[columns].apply(
+        lambda row: _combine_unique_values(
+            row.tolist()
+        ),
         axis=1,
     )
 
@@ -911,44 +816,69 @@ def extract_combined_series(
 # TABULAR CONVERSION
 # ============================================================
 
-def tabular_to_dataframe(
-    dataframe,
-    database,
-    column_map,
-):
+def tabular_to_dataframe(dataframe, database, column_map):
     """
     Converts a database-specific CSV/XLSX table into the canonical
     importer representation.
 
     Multiple keyword columns are combined automatically.
 
+    Volume is recovered even when the database-specific map omits it.
+
     Missing DOIs are searched across the entire original row,
     allowing DOI recovery from URL/link/identifier fields.
     """
-
     result = pd.DataFrame(
         index=dataframe.index
     )
 
     for canonical_field, aliases in column_map.items():
-
         if canonical_field == "keywords":
-
-            result[
-                canonical_field
-            ] = extract_combined_series(
+            result[canonical_field] = extract_combined_series(
                 dataframe,
                 aliases,
             )
 
         else:
-
-            result[
-                canonical_field
-            ] = extract_first_value_series(
+            result[canonical_field] = extract_first_value_series(
                 dataframe,
                 aliases,
             )
+
+    # Preserve volume even when a database-specific map omits it.
+    # Values already recovered through the explicit map have priority.
+    # Shared aliases fill only missing values.
+    # The caller's map is not modified.
+    volume_aliases = list(
+        column_map.get("volume", [])
+    ) + [
+        "volume",
+        "vol",
+        "vol.",
+        "volume number",
+        "volume no",
+        "volume no.",
+        "journal volume",
+        "book series volume",
+    ]
+
+    recovered_volume = extract_first_value_series(
+        dataframe,
+        volume_aliases,
+    )
+
+    if "volume" not in result.columns:
+        result["volume"] = recovered_volume
+
+    else:
+        missing_volume = (
+            result["volume"].map(safe_text) == ""
+        )
+
+        result.loc[
+            missing_volume,
+            "volume",
+        ] = recovered_volume.loc[missing_volume]
 
     # Ensure expected columns.
     for column in [
@@ -957,30 +887,24 @@ def tabular_to_dataframe(
         "authors",
         "year",
         "publication",
+        "volume",
         "document_type",
         "doi",
         "abstract",
         "keywords",
         "url",
     ]:
-
         if column not in result.columns:
             result[column] = ""
 
-    result[
-        "database"
-    ] = DATABASE_NAMES.get(
+    result["database"] = DATABASE_NAMES.get(
         database,
         database,
     )
 
-    result[
-        "metadata_status"
-    ] = "IMPORTED"
+    result["metadata_status"] = "IMPORTED"
 
-    result[
-        "metadata_source"
-    ] = (
+    result["metadata_source"] = (
         f"{DATABASE_NAMES.get(database, database)} export"
     )
 
@@ -992,32 +916,20 @@ def tabular_to_dataframe(
     # ========================================================
 
     for index in dataframe.index:
-
         current_doi = extract_doi_from_text(
             result.at[index, "doi"]
         )
 
         if current_doi:
-
-            result.at[
-                index,
-                "doi",
-            ] = current_doi
-
+            result.at[index, "doi"] = current_doi
             continue
 
         recovered_doi = extract_doi_from_values(
-            dataframe.loc[
-                index
-            ].tolist()
+            dataframe.loc[index].tolist()
         )
 
         if recovered_doi:
-
-            result.at[
-                index,
-                "doi",
-            ] = recovered_doi
+            result.at[index, "doi"] = recovered_doi
 
     return result
 
@@ -1032,9 +944,8 @@ def deduplicate_records(dataframe):
 
     Priority:
         1. DOI
-        2. a unique normalized-title match with compatible volume
+        2. A unique normalized-title match with compatible DOI and volume.
     """
-
     unique_records = []
     duplicate_records = []
 
@@ -1042,112 +953,100 @@ def deduplicate_records(dataframe):
     title_seen = {}
 
     for _, row in dataframe.iterrows():
-
         record = row.to_dict()
 
         doi_key = normalize_doi(
-            record.get(
-                "doi",
-                "",
-            )
+            record.get("doi", "")
         )
 
         title_key = normalize_title(
-            record.get(
-                "title",
-                "",
-            )
+            record.get("title", "")
         )
 
         duplicate_reason = ""
         matched_record = None
 
-        if (
-            doi_key
-            and doi_key in doi_seen
-        ):
-
+        if doi_key and doi_key in doi_seen:
             duplicate_reason = "DOI"
+            matched_record = doi_seen[doi_key]
 
-            matched_record = (
-                doi_seen[
-                    doi_key
-                ]
-            )
-
-        elif (
-            title_key
-            and title_key in title_seen
-        ):
-
+        elif title_key and title_key in title_seen:
             duplicate_reason = "TITLE"
 
             matched_record = find_unique_title_match(
-                title_seen[title_key], record,
+                title_seen[title_key],
+                record,
             )
 
         if matched_record is not None:
-
-            # Preserve the first record's identity and nonempty values.
-            # Recover bibliographic metadata before discarding the duplicate.
+            # Preserve the first record's identity and populated values.
+            # Recover bibliographic metadata before discarding duplicates.
             for field in (
-                "title", "authors", "year", "publication", "volume", "document_type",
-                "doi", "abstract", "keywords", "url",
+                "title",
+                "authors",
+                "year",
+                "publication",
+                "volume",
+                "document_type",
+                "doi",
+                "abstract",
+                "keywords",
+                "url",
             ):
-                if not safe_text(matched_record.get(field, "")):
+                if not safe_text(
+                    matched_record.get(field, "")
+                ):
                     value = record.get(field, "")
+
                     if safe_text(value):
                         matched_record[field] = value
 
             # Make recovered identifiers available to subsequent matches.
             if doi_key:
-                doi_seen.setdefault(doi_key, matched_record)
+                doi_seen.setdefault(
+                    doi_key,
+                    matched_record,
+                )
+
             if title_key:
-                candidates = title_seen.setdefault(title_key, [])
-                if not any(candidate is matched_record for candidate in candidates):
+                candidates = title_seen.setdefault(
+                    title_key,
+                    [],
+                )
+
+                if not any(
+                    candidate is matched_record
+                    for candidate in candidates
+                ):
                     candidates.append(matched_record)
 
-            duplicate = (
-                record.copy()
-            )
+            duplicate = record.copy()
 
-            duplicate[
-                "duplicate_reason"
-            ] = duplicate_reason
+            duplicate["duplicate_reason"] = duplicate_reason
 
-            duplicate[
-                "matched_source_id"
-            ] = matched_record.get(
+            duplicate["matched_source_id"] = matched_record.get(
                 "source_id",
                 "",
             )
 
-            duplicate[
-                "matched_title"
-            ] = matched_record.get(
+            duplicate["matched_title"] = matched_record.get(
                 "title",
                 "",
             )
 
-            duplicate_records.append(
-                duplicate
-            )
-
+            duplicate_records.append(duplicate)
             continue
 
-        unique_records.append(
-            record
-        )
+        unique_records.append(record)
 
         if doi_key:
-
-            doi_seen[
-                doi_key
-            ] = record
+            doi_seen[doi_key] = record
 
         if title_key:
-
-            title_seen.setdefault(title_key, []).append(record)
+            title_seen.setdefault(
+                title_key,
+                [],
+            ).append(record)
 
     return (
         pd.DataFrame(
@@ -1157,7 +1056,9 @@ def deduplicate_records(dataframe):
         pd.DataFrame(
             duplicate_records,
             columns=list(dataframe.columns) + [
-                "duplicate_reason", "matched_source_id", "matched_title",
+                "duplicate_reason",
+                "matched_source_id",
+                "matched_title",
             ],
         ),
     )
@@ -1167,21 +1068,20 @@ def deduplicate_records(dataframe):
 # FINALIZE IMPORT
 # ============================================================
 
-def finalize_import(
-    dataframe,
-    database,
-):
+def finalize_import(dataframe, database):
     """
     Standardizes, recovers DOIs, deduplicates and saves one database.
     """
-
     standardized = standardize_dataframe(
         dataframe,
         database=database,
     )
 
     if standardized.empty:
-        print("\nNo records imported. Existing output files were preserved.")
+        print(
+            "\nNo records imported. "
+            "Existing output files were preserved."
+        )
         return standardized
 
     # Extra DOI recovery after canonical standardization.
@@ -1197,20 +1097,12 @@ def finalize_import(
         standardized.index,
         start=1,
     ):
-
         source_id = safe_text(
-            standardized.at[
-                index,
-                "source_id",
-            ]
+            standardized.at[index, "source_id"]
         )
 
         if not source_id:
-
-            standardized.at[
-                index,
-                "source_id",
-            ] = (
+            standardized.at[index, "source_id"] = (
                 f"{database.upper()}-"
                 f"{sequence:04d}"
             )
@@ -1219,11 +1111,7 @@ def finalize_import(
     # YEAR
     # --------------------------------------------------------
 
-    standardized[
-        "year"
-    ] = standardized[
-        "year"
-    ].apply(
+    standardized["year"] = standardized["year"].apply(
         clean_year
     )
 
@@ -1231,23 +1119,15 @@ def finalize_import(
     # DEDUPLICATION
     # --------------------------------------------------------
 
-    (
-        unique_records,
-        duplicates,
-    ) = deduplicate_records(
+    unique_records, duplicates = deduplicate_records(
         standardized
     )
 
-    output_file = OUTPUT_FILES[
-        database
-    ]
+    output_file = OUTPUT_FILES[database]
 
     duplicate_file = (
         PROCESSED_DIR
-        / (
-            f"{database}"
-            f"_duplicates_internal.xlsx"
-        )
+        / f"{database}_duplicates_internal.xlsx"
     )
 
     output_file.parent.mkdir(
@@ -1261,37 +1141,25 @@ def finalize_import(
     )
 
     if not duplicates.empty:
-
         duplicates.to_excel(
             duplicate_file,
             index=False,
         )
 
     elif duplicate_file.exists():
-
         duplicate_file.unlink()
 
     # --------------------------------------------------------
     # SUMMARY
     # --------------------------------------------------------
 
-    total_input = len(
-        standardized
-    )
-
-    total_unique = len(
-        unique_records
-    )
-
-    total_duplicates = len(
-        duplicates
-    )
+    total_input = len(standardized)
+    total_unique = len(unique_records)
+    total_duplicates = len(duplicates)
 
     abstracts = int(
         (
-            unique_records[
-                "abstract"
-            ]
+            unique_records["abstract"]
             .fillna("")
             .astype(str)
             .str.strip()
@@ -1301,9 +1169,7 @@ def finalize_import(
 
     dois = int(
         (
-            unique_records[
-                "doi"
-            ]
+            unique_records["doi"]
             .fillna("")
             .astype(str)
             .str.strip()
@@ -1313,9 +1179,7 @@ def finalize_import(
 
     keywords = int(
         (
-            unique_records[
-                "keywords"
-            ]
+            unique_records["keywords"]
             .fillna("")
             .astype(str)
             .str.strip()
@@ -1323,65 +1187,27 @@ def finalize_import(
         ).sum()
     )
 
-    print(
-        "\n" + "=" * 70
-    )
+    print("\n" + "=" * 70)
 
     print(
         f"{DATABASE_NAMES.get(database, database).upper()} "
-        f"IMPORT COMPLETED"
+        "IMPORT COMPLETED"
     )
 
-    print(
-        "=" * 70
-    )
+    print("=" * 70)
 
-    print(
-        f"\nRecords imported: "
-        f"{total_input}"
-    )
+    print(f"\nRecords imported: {total_input}")
+    print(f"Unique records: {total_unique}")
+    print(f"Internal duplicates: {total_duplicates}")
+    print(f"Records with abstract: {abstracts}")
+    print(f"Records with DOI: {dois}")
+    print(f"Records with keywords: {keywords}")
 
-    print(
-        f"Unique records: "
-        f"{total_unique}"
-    )
-
-    print(
-        f"Internal duplicates: "
-        f"{total_duplicates}"
-    )
-
-    print(
-        f"Records with abstract: "
-        f"{abstracts}"
-    )
-
-    print(
-        f"Records with DOI: "
-        f"{dois}"
-    )
-
-    print(
-        f"Records with keywords: "
-        f"{keywords}"
-    )
-
-    print(
-        "\nOutput file:"
-    )
-
-    print(
-        output_file
-    )
+    print("\nOutput file:")
+    print(output_file)
 
     if total_duplicates:
-
-        print(
-            "\nInternal duplicate report:"
-        )
-
-        print(
-            duplicate_file
-        )
+        print("\nInternal duplicate report:")
+        print(duplicate_file)
 
     return unique_records
