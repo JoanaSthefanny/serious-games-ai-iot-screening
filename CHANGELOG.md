@@ -102,10 +102,10 @@ UNCERTAIN:  3/22
 RETAIN:     0/22
 ```
 
-A broader positive sensitivity test included 26 previously included studies from multiple databases:
+A broader positive sensitivity test included 15 previously included studies from multiple databases:
 
 ```text
-Preserved: 26/26
+Preserved: 15/15
 Automatically excluded: 0
 ```
 
