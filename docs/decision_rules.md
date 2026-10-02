@@ -17,8 +17,8 @@ EXCLUDE
 The rules documented here correspond to:
 
 ```text
-Classifier version: 1.8
-Prompt version: 1.6
+Classifier version: 1.10
+Prompt version: 1.7
 ```
 
 ---
@@ -202,7 +202,7 @@ AI = YES
 IoT = EXPLICIT_IOT or FUNCTIONALLY_COMPATIBLE
 ```
 
-and no exclusion condition applies.
+and `gamification_only = NO` and `secondary_or_incomplete = NO`.
 
 `RETAIN` means the study should proceed to subsequent review.
 
@@ -218,7 +218,7 @@ A record receives:
 UNCERTAIN
 ```
 
-when at least one relevant dimension cannot be determined safely from title, abstract, and keywords.
+when at least one label is `UNCERTAIN` and no earlier exclusion applies, when the game/gamification labels contradict each other, or when a safety rescue applies.
 
 Examples include:
 
@@ -248,39 +248,7 @@ EXCLUDE
 
 when there is sufficiently clear evidence of an exclusion condition.
 
-Examples include:
-
-```text
-Serious game = NO
-```
-
-with no relevant rescue signal;
-
-```text
-Health = NO
-```
-
-with no health-related metadata signal;
-
-```text
-AI = NO
-```
-
-with no explicit AI evidence;
-
-```text
-IoT = NO
-```
-
-with no explicit or functionally compatible connected architecture;
-
-or clear evidence that the publication is:
-
-- a systematic review;
-- mapping study;
-- bibliometric study;
-- secondary study;
-- incomplete publication.
+A core criterion classified as `NO` causes exclusion unless one of the three rescues applies. This check precedes unresolved labels. Secondary/incomplete studies and gamification-only records are excluded before rescues, except for the game/gamification contradiction checked first.
 
 ---
 
@@ -298,175 +266,21 @@ for human assessment.
 
 ---
 
-## RESCUE_CONTRADICTORY_GAME_LABELS
+The current classifier implements exactly three rescues, evaluated in this order:
 
-Activated when:
+| Code | Required conditions |
+|---|---|
+| `RESGATE_IOT_3_DE_4` | Serious game, health and AI are `YES`; IoT is `NO`; an acquisition or monitoring signal is present. |
+| `RESGATE_MULTIMODAL` | Health and AI are `YES`; serious game or IoT is `NO`; both interaction and acquisition signals are present. |
+| `RESGATE_AAL_ESTIMULACAO` | Serious game is `NO`; health is `YES`; IoT is `EXPLICIT_IOT` or `FUNCTIONALLY_COMPATIBLE`; AI is `YES` or `UNCERTAIN`; both stimulation and assistive-platform signals are present. |
 
-```text
-serious_game = YES
-```
+Signals are lexical matches in title, abstract and keywords against the `CALIBRATED_*_TERMS` lists in `src/screening/classifier.py`.
 
-and:
+Decision order: contradictory game/gamification labels → secondary or incomplete study → gamification only → the three rescues above → negative core criteria → uncertain labels → retention.
 
-```text
-gamification_only = YES
-```
+When `serious_game = YES` and `gamification_only = YES`, the result is `UNCERTAIN` with an empty rescue code. This contradiction is checked before study type.
 
-occur simultaneously.
-
-The contradictory interpretation must be resolved manually.
-
----
-
-## RESCUE_STUDY_TYPE_AMBIGUITY
-
-Activated when the LLM marks a record as secondary or incomplete, but title/abstract/keywords do not provide sufficiently clear secondary-study evidence.
-
-This protects primary studies whose titles contain terms such as:
-
-```text
-project
-system
-framework
-development
-```
-
-that could otherwise be misinterpreted.
-
----
-
-## RESCUE_GAME_AMBIGUITY
-
-Activated when gamification is detected but metadata also contains possible evidence of an actual game.
-
-The distinction is deferred to human review.
-
----
-
-## RESCUE_GAME_EVIDENCE
-
-Activated when:
-
-```text
-serious_game = NO
-```
-
-but title, abstract, or keywords contain explicit game-related terminology such as:
-
-- serious game;
-- exergame;
-- gameplay;
-- game-based;
-- gaming.
-
----
-
-## RESCUE_HEALTH_EVIDENCE
-
-Activated when:
-
-```text
-health = NO
-```
-
-but the metadata includes health-related terminology.
-
-Examples include:
-
-- rehabilitation;
-- therapy;
-- patients;
-- neurological conditions;
-- physical activity;
-- assistive technology.
-
----
-
-## RESCUE_AI_EVIDENCE
-
-Activated when:
-
-```text
-AI = NO
-```
-
-but explicit AI-related terminology occurs in the metadata.
-
-Examples include:
-
-- machine learning;
-- deep learning;
-- neural network;
-- computer vision;
-- pose recognition;
-- activity recognition;
-- explainable AI.
-
----
-
-## RESCUE_IOT_ARCHITECTURE
-
-Activated when:
-
-```text
-IoT = NO
-```
-
-but metadata contains either:
-
-- explicit IoT terminology; or
-- evidence of a connected sensor/device architecture.
-
-The record is routed to manual review rather than excluded.
-
----
-
-## RESCUE_3_OF_4
-
-The four central criteria are:
-
-```text
-Serious game
-Health
-Artificial intelligence
-Internet of Things
-```
-
-When at least three are strongly supported and one is classified as absent, automatic exclusion is considered potentially unsafe.
-
-The record is therefore assigned:
-
-```text
-UNCERTAIN
-```
-
-This rule is particularly relevant when abstracts omit architecture details that may be available only in the full text.
-
----
-
-## RESCUE_MULTIMODAL_SYSTEM
-
-Activated for technically rich immersive systems combining evidence such as:
-
-- virtual or extended reality;
-- AI;
-- sensors or connected devices;
-- health applications.
-
-If one screening dimension is insufficiently described, the record is preserved for human assessment.
-
----
-
-## RESCUE_AAL_ASSISTIVE_SYSTEM
-
-Activated for connected assistive-health or ambient-assisted-living systems when:
-
-- health is supported;
-- IoT is supported;
-- AI is supported or plausible;
-- the game component cannot be safely determined from metadata.
-
-This protects complex systems where game-based activities may only be described in the full text.
+An uncertain label does not prevent exclusion by another negative core criterion when no rescue applies. There is no generic three-of-four rescue and no independent game, health or AI terminology rescue.
 
 ---
 
@@ -486,7 +300,7 @@ and are routed to manual review.
 
 # API Error Rule
 
-Technical API failures never produce an exclusion decision.
+Technical API failures never produce an exclusion decision. Checkpoint write failures propagate and stop execution; they do not change a successful classification to `API_ERROR`. The previous checkpoint is replaced only after the new workbook is fully written.
 
 The internal result is:
 

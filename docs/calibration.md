@@ -157,9 +157,9 @@ Independent external validation would require a separate dataset that was not us
 
 ---
 
-## Final Configuration
+## Recorded Historical Configuration
 
-The finalized development configuration documented in this repository is:
+The version identifiers recorded for the historical research execution are:
 
 ```text
 Gemini model: gemini-3.5-flash-lite
@@ -168,6 +168,8 @@ Classifier version: 1.8
 ```
 
 ---
+
+Historical results were produced by the original research scripts. Their recorded version identifiers are preserved. The current public implementation uses prompt v1.7 and classifier v1.10; the historical results do not constitute a new Gemini execution with this configuration.
 
 ## Full Screening Run
 

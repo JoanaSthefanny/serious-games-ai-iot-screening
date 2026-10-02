@@ -1092,6 +1092,23 @@ def deduplicate_records(dataframe):
 
         if matched_record is not None:
 
+            # Preserve the first record's identity and nonempty values.
+            # Recover bibliographic metadata before discarding the duplicate.
+            for field in (
+                "title", "authors", "year", "publication", "document_type",
+                "doi", "abstract", "keywords", "url",
+            ):
+                if not safe_text(matched_record.get(field, "")):
+                    value = record.get(field, "")
+                    if safe_text(value):
+                        matched_record[field] = value
+
+            # Make recovered identifiers available to subsequent matches.
+            if doi_key:
+                doi_seen.setdefault(doi_key, matched_record)
+            if title_key:
+                title_seen.setdefault(title_key, matched_record)
+
             duplicate = (
                 record.copy()
             )
@@ -1138,10 +1155,14 @@ def deduplicate_records(dataframe):
 
     return (
         pd.DataFrame(
-            unique_records
+            unique_records,
+            columns=dataframe.columns,
         ),
         pd.DataFrame(
-            duplicate_records
+            duplicate_records,
+            columns=list(dataframe.columns) + [
+                "duplicate_reason", "matched_source_id", "matched_title",
+            ],
         ),
     )
 
@@ -1162,6 +1183,10 @@ def finalize_import(
         dataframe,
         database=database,
     )
+
+    if standardized.empty:
+        print("\nNo records imported. Existing output files were preserved.")
+        return standardized
 
     # Extra DOI recovery after canonical standardization.
     standardized = recover_missing_dois(

@@ -2,6 +2,8 @@ from importlib import import_module
 from pathlib import Path
 import sys
 
+import pandas as pd
+
 
 # ============================================================
 # PROJECT INFORMATION
@@ -481,6 +483,10 @@ def run_complete_workflow():
             "import_module"
         ]
     )
+
+    if not isinstance(import_result, pd.DataFrame) or import_result.empty:
+        print("\nWorkflow stopped: import did not produce valid records.")
+        return
 
     # --------------------------------------------------------
     # STEP 2 - SPRINGER ENRICHMENT

@@ -221,8 +221,8 @@ The screening pipeline uses:
 
 ```text
 Model: gemini-3.5-flash-lite
-Prompt version: 1.6
-Classifier version: 1.8
+Prompt version: 1.7
+Classifier version: 1.10
 ```
 
 The LLM does **not** directly make the final inclusion or exclusion decision.
@@ -274,7 +274,7 @@ The screening stage was designed to prioritize sensitivity.
 
 A record is automatically excluded only when the available metadata provides sufficient evidence that an eligibility criterion is not satisfied.
 
-When the evidence is incomplete or ambiguous, the record is assigned:
+When the evidence is incomplete or ambiguous and no earlier exclusion rule applies, the record is assigned:
 
 ```text
 UNCERTAIN
@@ -314,15 +314,21 @@ UNCERTAIN
 
 instead.
 
-Examples include situations where:
+The current classifier implements exactly three rescues, evaluated in this order:
 
-- textual game evidence contradicts an LLM `NO`;
-- health-related terminology contradicts a health `NO`;
-- explicit AI terminology contradicts an AI `NO`;
-- IoT terminology or a connected sensor architecture contradicts an IoT `NO`;
-- three of four central eligibility dimensions are strongly supported;
-- a multimodal immersive system appears relevant but one architecture dimension is insufficiently described;
-- an IoT-enabled assistive or ambient-assisted-living system may contain relevant functionality not sufficiently described in the abstract.
+| Code | Required conditions |
+|---|---|
+| `RESGATE_IOT_3_DE_4` | Serious game, health and AI are `YES`; IoT is `NO`; an acquisition or monitoring signal is present. |
+| `RESGATE_MULTIMODAL` | Health and AI are `YES`; serious game or IoT is `NO`; both interaction and acquisition signals are present. |
+| `RESGATE_AAL_ESTIMULACAO` | Serious game is `NO`; health is `YES`; IoT is `EXPLICIT_IOT` or `FUNCTIONALLY_COMPATIBLE`; AI is `YES` or `UNCERTAIN`; both stimulation and assistive-platform signals are present. |
+
+Signals are lexical matches in title, abstract and keywords against the `CALIBRATED_*_TERMS` lists in `src/screening/classifier.py`.
+
+Decision order: contradictory game/gamification labels → secondary or incomplete study → gamification only → the three rescues above → negative core criteria → uncertain labels → retention.
+
+When `serious_game = YES` and `gamification_only = YES`, the result is `UNCERTAIN` with an empty rescue code. This contradiction is checked before study type.
+
+An uncertain label does not prevent exclusion by another negative core criterion when no rescue applies. There is no generic three-of-four rescue and no independent game, health or AI terminology rescue.
 
 Safety rescue is deliberately conservative: it does not automatically include a study.
 
@@ -398,9 +404,13 @@ The repository documents:
 The Portuguese prompt stored in:
 
 ```text
-prompts/screening_prompt_v1_6_pt.txt
+prompts/screening_prompt_v1_7_pt.txt
 ```
 
 is the authoritative prompt associated with the screening implementation.
 
 The English prompt file is provided for documentation and readability.
+
+## Historical Results
+
+Historical results were produced by the original research scripts. Their recorded version identifiers are preserved. The current public implementation uses prompt v1.7 and classifier v1.10; the historical results do not constitute a new Gemini execution with this configuration.

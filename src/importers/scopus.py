@@ -174,7 +174,7 @@ def main():
         ignore_index=True,
     )
 
-    finalize_import(
+    return finalize_import(
         dataframe,
         DATABASE,
     )

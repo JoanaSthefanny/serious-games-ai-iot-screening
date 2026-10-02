@@ -79,7 +79,7 @@ def main():
 
         return
 
-    finalize_import(
+    return finalize_import(
         dataframe,
         DATABASE,
     )

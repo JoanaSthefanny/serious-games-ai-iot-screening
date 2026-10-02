@@ -915,34 +915,6 @@ def process_database(master, configuration, client):
                 rescue_code=rescue_code,
             )
 
-            results = replace_result(
-                results,
-                result,
-            )
-
-            save_checkpoint(
-                results,
-                output_file,
-                database_name,
-                total_records,
-            )
-
-            print(f"    Serious game: {assessment.serious_game}")
-            print(f"    Health: {assessment.health}")
-            print(f"    AI: {assessment.ai}")
-            print(f"    IoT: {assessment.iot}")
-            print(
-                "    Secondary/incomplete: "
-                f"{assessment.secondary_or_incomplete}"
-            )
-            print(f"    Decision: {decision}")
-
-            if rescue_code:
-                print(f"    Safety rescue: {rescue_code}")
-
-            print(f"    Reason: {reason}")
-            print("    Checkpoint saved.")
-
         except Exception as error:
             result = create_error_result(
                 article,
@@ -1001,6 +973,35 @@ def process_database(master, configuration, client):
 
             print("    Isolated technical error recorded.")
             print("    Continuing to the next record.")
+
+        else:
+            results = replace_result(
+                results,
+                result,
+            )
+
+            save_checkpoint(
+                results,
+                output_file,
+                database_name,
+                total_records,
+            )
+
+            print(f"    Serious game: {assessment.serious_game}")
+            print(f"    Health: {assessment.health}")
+            print(f"    AI: {assessment.ai}")
+            print(f"    IoT: {assessment.iot}")
+            print(
+                "    Secondary/incomplete: "
+                f"{assessment.secondary_or_incomplete}"
+            )
+            print(f"    Decision: {decision}")
+
+            if rescue_code:
+                print(f"    Safety rescue: {rescue_code}")
+
+            print(f"    Reason: {reason}")
+            print("    Checkpoint saved.")
 
         time.sleep(PAUSE_BETWEEN_ARTICLES)
 

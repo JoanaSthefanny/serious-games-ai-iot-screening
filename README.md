@@ -176,24 +176,24 @@ This distinction is especially important during title and abstract screening bec
 
 # Final Research Configuration
 
-The configuration associated with the documented study is:
+The current public implementation uses:
 
 ```text
 Gemini model:       gemini-3.5-flash-lite
-Prompt version:     1.6
-Classifier version: 1.8
+Prompt version:     1.7
+Classifier version: 1.10
 ```
 
 The authoritative Portuguese screening prompt is available at:
 
 ```text
-prompts/screening_prompt_v1_6_pt.txt
+prompts/screening_prompt_v1_7_pt.txt
 ```
 
 An English translation for documentation purposes is available at:
 
 ```text
-prompts/screening_prompt_v1_6_en.md
+prompts/screening_prompt_v1_7_en.md
 ```
 
 The translated prompt was not used to generate the reported screening results.
@@ -240,8 +240,8 @@ serious-games-ai-iot-screening/
 │       └── interactive_screening.py
 │
 ├── prompts/
-│   ├── screening_prompt_v1_6_pt.txt
-│   └── screening_prompt_v1_6_en.md
+│   ├── screening_prompt_v1_7_pt.txt
+│   └── screening_prompt_v1_7_en.md
 │
 ├── docs/
 │   ├── methodology.md
@@ -858,15 +858,21 @@ docs/adaptation_guide.md
 
 The classifier includes conservative safety rules designed to reduce false-negative automatic exclusions.
 
-Safety rescues may be activated when, for example:
+The current classifier implements exactly three rescues, evaluated in this order:
 
-- game terminology contradicts an LLM `NO`;
-- health terminology contradicts a health `NO`;
-- explicit AI evidence contradicts an AI `NO`;
-- IoT terminology or connected-device evidence contradicts an IoT `NO`;
-- three of the four central eligibility dimensions are strongly supported;
-- a complex multimodal system remains insufficiently described in the abstract;
-- an assistive or ambient-assisted-living system may contain relevant functionality not visible in the metadata.
+| Code | Required conditions |
+|---|---|
+| `RESGATE_IOT_3_DE_4` | Serious game, health and AI are `YES`; IoT is `NO`; an acquisition or monitoring signal is present. |
+| `RESGATE_MULTIMODAL` | Health and AI are `YES`; serious game or IoT is `NO`; both interaction and acquisition signals are present. |
+| `RESGATE_AAL_ESTIMULACAO` | Serious game is `NO`; health is `YES`; IoT is `EXPLICIT_IOT` or `FUNCTIONALLY_COMPATIBLE`; AI is `YES` or `UNCERTAIN`; both stimulation and assistive-platform signals are present. |
+
+Signals are lexical matches in title, abstract and keywords against the `CALIBRATED_*_TERMS` lists in `src/screening/classifier.py`.
+
+Decision order: contradictory game/gamification labels → secondary or incomplete study → gamification only → the three rescues above → negative core criteria → uncertain labels → retention.
+
+When `serious_game = YES` and `gamification_only = YES`, the result is `UNCERTAIN` with an empty rescue code. This contradiction is checked before study type.
+
+An uncertain label does not prevent exclusion by another negative core criterion when no rescue applies. There is no generic three-of-four rescue and no independent game, health or AI terminology rescue.
 
 A safety rescue does **not** automatically include the study.
 
@@ -988,6 +994,8 @@ for detailed instructions.
 ---
 
 # Screening Run Documented in the Study
+
+Historical results were produced by the original research scripts. Their recorded version identifiers are preserved. The current public implementation uses prompt v1.7 and classifier v1.10; the historical results do not constitute a new Gemini execution with this configuration.
 
 The completed screening dataset contained:
 
@@ -1215,8 +1223,8 @@ For the documented study:
 
 ```text
 Public software version: 1.0.0
-Prompt version:          1.6
-Classifier version:      1.8
+Prompt version:          1.7
+Classifier version:      1.10
 ```
 
 When adapting the system to another review, researchers should assign new prompt and classifier versions to the modified configuration.

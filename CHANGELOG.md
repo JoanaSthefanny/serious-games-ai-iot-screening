@@ -10,6 +10,16 @@ The project follows a simplified versioning approach for the public research sof
 
 ## [Unreleased]
 
+### Fixed
+
+- Preserve existing outputs when an import produces no records.
+- Preserve empty-table columns and recover missing bibliographic metadata from internal duplicates.
+- Return imported records from all six importers and stop the complete workflow after a failed or empty import.
+- Stop on checkpoint write failures without converting successful classifications into API errors.
+- Align current documentation with prompt v1.7, classifier v1.10 and the three implemented rescue rules; distinguish historical results.
+- Declare `xlrd` for supported legacy `.xls` imports.
+- Add eight offline regression tests covering import safety, workflow gating, checkpoint failures and decision precedence.
+
 ### Planned
 
 - Additional validation with independent datasets.
@@ -21,6 +31,8 @@ The project follows a simplified versioning approach for the public research sof
 ---
 
 ## [1.0.0] - 2026-09-30
+
+Historical results were produced by the original research scripts. Their recorded version identifiers are preserved. The current public implementation uses prompt v1.7 and classifier v1.10; the historical results do not constitute a new Gemini execution with this configuration.
 
 ### Added
 

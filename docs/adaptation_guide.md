@@ -39,8 +39,8 @@ The screening component contains rules that are specific to the original study.
 Researchers applying the pipeline to another review should examine at least the following components:
 
 ```text
-prompts/screening_prompt_v1_6_pt.txt
-prompts/screening_prompt_v1_6_en.md
+prompts/screening_prompt_v1_7_pt.txt
+prompts/screening_prompt_v1_7_en.md
 
 src/screening/classifier.py
 src/screening/interactive_screening.py
@@ -107,7 +107,7 @@ The review protocol should define the criteria first, and the software should th
 The original production prompt is stored in:
 
 ```text
-prompts/screening_prompt_v1_6_pt.txt
+prompts/screening_prompt_v1_7_pt.txt
 ```
 
 This prompt was specifically designed for the original systematic mapping study.
@@ -327,12 +327,21 @@ The actual logic must follow the protocol of the new systematic review.
 
 The original classifier contains safety-rescue mechanisms intended to reduce false-negative exclusions.
 
-Examples include situations where:
+The current classifier implements exactly three rescues, evaluated in this order:
 
-- lexical evidence contradicts an LLM `NO`;
-- three of four core dimensions are strongly supported;
-- an architecture appears relevant but is incompletely described;
-- a complex system may contain components not visible in the abstract.
+| Code | Required conditions |
+|---|---|
+| `RESGATE_IOT_3_DE_4` | Serious game, health and AI are `YES`; IoT is `NO`; an acquisition or monitoring signal is present. |
+| `RESGATE_MULTIMODAL` | Health and AI are `YES`; serious game or IoT is `NO`; both interaction and acquisition signals are present. |
+| `RESGATE_AAL_ESTIMULACAO` | Serious game is `NO`; health is `YES`; IoT is `EXPLICIT_IOT` or `FUNCTIONALLY_COMPATIBLE`; AI is `YES` or `UNCERTAIN`; both stimulation and assistive-platform signals are present. |
+
+Signals are lexical matches in title, abstract and keywords against the `CALIBRATED_*_TERMS` lists in `src/screening/classifier.py`.
+
+Decision order: contradictory game/gamification labels → secondary or incomplete study → gamification only → the three rescues above → negative core criteria → uncertain labels → retention.
+
+When `serious_game = YES` and `gamification_only = YES`, the result is `UNCERTAIN` with an empty rescue code. This contradiction is checked before study type.
+
+An uncertain label does not prevent exclusion by another negative core criterion when no rescue applies. There is no generic three-of-four rescue and no independent game, health or AI terminology rescue.
 
 These rules are specific to the original screening problem.
 
