@@ -8,7 +8,7 @@ The objective of calibration was to reduce false-negative screening decisions wh
 
 The calibration data were used during classifier development and therefore must **not** be interpreted as an independent external validation set.
 
-The calibration and screening figures reported below belong to the original research execution. The current repository provides an organized and updated implementation; these historical figures are not presented as results of a new execution with the current configuration.
+The calibration figures reported below document the iterative development process and do not constitute independent validation. The full screening figures correspond to the final research execution reported in the systematic mapping study. Subsequent repository maintenance does not retroactively change those results.
 
 ---
 
@@ -169,7 +169,7 @@ Prompt version: 1.9
 Classifier version: 1.11
 ```
 
-These identifiers describe the current software. The historical calibration and screening results below retain the configuration identifiers recorded in their original execution files.
+These identifiers also correspond to the configuration reported for the final full screening run of the systematic mapping study. The operational screening prompt is the Portuguese file `prompts/screening_prompt_v1_9_pt.txt`; the English translation is provided for documentation. Earlier calibration outputs must retain their originally recorded configuration identifiers.
 
 ---
 
@@ -179,9 +179,7 @@ Following the original calibration process, the research scripts
 were executed across the six database collections incorporated
 into the master dataset.
 
-The figures below describe that historical execution. They do not
-represent a complete rerun with the current prompt v1.9 and
-classifier v1.11.
+According to the configuration reported for the systematic mapping study, this full screening run used the `gemini-3.5-flash-lite` model, Portuguese screening prompt v1.9, and deterministic classifier v1.11. The results below describe that recorded research execution, not an additional independent rerun after software maintenance.
 
 The combined dataset contained:
 

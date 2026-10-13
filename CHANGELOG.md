@@ -51,7 +51,7 @@ Historical research results retain their recorded configuration identifiers. Sof
 - Continue invalidating screening results when screening metadata or configuration changes, and keep API errors eligible for retry.
 - Align screening package metadata with prompt v1.9 and classifier v1.11.
 - Declare `xlrd` for supported legacy `.xls` imports.
-- Correct documentation inconsistencies concerning screening rules, configuration identifiers, and historical results.
+- Clarify version provenance: preserve the earlier v1.6/v1.8 configuration in the development history while recording the researcher-confirmed v1.9/v1.11 configuration for the final study run; do not treat later maintenance as a new screening execution.
 
 ### Changed
 
@@ -62,7 +62,7 @@ Historical research results retain their recorded configuration identifiers. Sof
 - Update the classifier to v1.11.
 - Add `RESGATE_AAL_METADADOS_INCOMPLETOS`, which routes qualifying assistive-health cases to `UNCERTAIN` without changing their original criterion labels.
 - Align the README and methodological documentation with the current prompt, classifier, and four implemented safety-rescue rules.
-- Distinguish the current implementation from the original research execution.
+- Distinguish the earlier development configuration, the final study-run configuration confirmed by the researcher, and later maintenance of the public implementation.
 - Clarify that the historical 15-study positive test includes the same 11 relevant IEEE studies plus two PubMed and two ACM studies.
 - Update workflow test fixtures to require a non-empty DataFrame from successful Springer enrichment instead of treating `None` as success.
 
@@ -85,6 +85,26 @@ Historical research results retain their recorded configuration identifiers. Sof
 - Thirteen additional regression tests in `tests/test_springer_source_identity_regressions.py`, covering repeated checkpoint merges, preservation of abstracts and API-specific columns, origin compatibility, recovered DOIs, and repeated saved enrichment runs without external API calls.
 - Fourteen additional regression tests in `tests/test_screening_bibliography_regressions.py`, covering refreshed bibliography, preservation of screening assessments, legacy columns, explicit empty values, invalidation rules, saved results with no pending articles, atomic-write failures, and refreshes before processing pending records.
 
+### Research Run Configuration Clarification (2026-10-12)
+
+The researcher confirmed that the **final screening run reported in the systematic mapping study** used:
+
+```text
+Gemini model:       gemini-3.5-flash-lite
+Prompt version:     1.9 (Portuguese)
+Classifier version: 1.11
+```
+
+The reported final run processed **1,046 unique records**, producing 37 `RETAIN`, 141 `UNCERTAIN`, and 868 `EXCLUDE` decisions; 178 records were preserved for human review. The run summary also reports 74 records without abstracts, 40 safety-rescue activations, and zero remaining technical errors.
+
+Earlier project documentation associated this research-run summary with prompt v1.6 and classifier v1.8. The researcher identified that association as incorrect for the **final study run**. The earlier identifiers are retained below as an **earlier recorded development configuration** rather than being silently erased from the history.
+
+**Provenance verification still required:** The publicly available repository does not contain the original per-record research output workbooks (`data/processed/` is ignored). Before treating this correction as independently verified, check the `model`, `prompt_version`, `classifier_version`, and `rescue_code` values in the original six screening outputs. Where present, preserve their `prompt_hash`, their execution date, and the corresponding code commit. The current source-code configuration alone does not establish which configuration generated prior results.
+
+The current classifier implements four safety-rescue rules, but the reported total of 40 activations must **not** be attributed to all four rules without inspecting the original `rescue_code` values. Later maintenance does not retroactively alter recorded research decisions.
+
+This clarification corrects the **description of the final research run**; it does not report a new full execution, a new calibration sample, or independent external validation.
+
 ### Planned
 
 - Additional evaluation using independent datasets.
@@ -99,9 +119,9 @@ Historical research results retain their recorded configuration identifiers. Sof
 
 Initial public release of the research screening pipeline.
 
-The research results documented below were produced by the original research scripts. Their counts and recorded configuration identifiers are preserved.
+This section records the **initial public software release** dated 2026-09-30. It also retains an earlier configuration snapshot and the documented calibration results for historical traceability.
 
-They do not represent a complete rerun with the prompt and classifier described under `Unreleased`.
+A later clarification under `Unreleased` records the researcher's confirmation that the **final 1,046-record screening run** used prompt v1.9 and classifier v1.11. This clarification must not be interpreted as proof that the initial public release already contained all later maintenance changes, or as evidence of a new full run. Original per-record output files remain the authoritative provenance record.
 
 ### Added
 
@@ -136,9 +156,9 @@ They do not represent a complete rerun with the prompt and classifier described 
 - MIT License.
 - Citation metadata through `CITATION.cff`.
 
-### Recorded Historical Research Configuration
+### Earlier Configuration Recorded in Development Documentation
 
-The version identifiers recorded for the original research execution are:
+The initial release documentation recorded the following **earlier configuration**:
 
 ```text
 Gemini model:       gemini-3.5-flash-lite
@@ -146,7 +166,7 @@ Prompt version:     1.6
 Classifier version: 1.8
 ```
 
-These identifiers describe the historical execution records, not the current implementation.
+These identifiers are preserved to document the development history. They must **not** be assigned to the final 1,046-record screening run merely because earlier documentation used the phrase "original research execution." The researcher confirmed a different final configuration in the 2026-10-12 clarification above. Original saved execution metadata should be checked to complete provenance verification.
 
 ### Historical Development and Calibration
 
@@ -180,11 +200,15 @@ A study was considered preserved when its screening outcome was either `RETAIN` 
 
 These records contributed to classifier development. The results describe calibration performance and do not constitute independent external validation.
 
-### Historical Screening Run
+### Final Research Screening Results (Retrospective Record)
 
-The original research execution processed:
+The final study-run summary, reported retrospectively in this changelog, is:
 
 ```text
+Gemini model:       gemini-3.5-flash-lite
+Prompt version:     1.9 (Portuguese; researcher-confirmed)
+Classifier version: 1.11 (researcher-confirmed)
+
 Total records: 1,046
 RETAIN:     37
 UNCERTAIN: 141
@@ -194,8 +218,8 @@ Records without abstracts: 74
 Remaining technical errors: 0
 ```
 
-Records without abstracts were included in `UNCERTAIN`.
+Records without abstracts were included in `UNCERTAIN`. The counts above are the reported final research outcomes; they do not imply that the final research run occurred on the initial public release date of 2026-09-30.
 
-These counts belong to the historical execution and remain unchanged by subsequent software updates.
+The version attribution is based on the researcher's confirmation and should be reconciled with the original per-record screening workbooks. The 40 rescue activations should be broken down by `rescue_code` before attributing them to any particular set of rescue rules.
 
-The automated outcomes do not represent final full-text inclusion decisions.
+Subsequent software updates do not retroactively modify recorded decisions. The automated screening outcomes do not represent final full-text inclusion decisions.

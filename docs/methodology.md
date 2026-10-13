@@ -532,16 +532,17 @@ Changes to the prompt or decision rules should be accompanied by updated version
 
 ## Historical Results
 
-Historical research results were produced by the original research scripts.
-
-Their counts and recorded configuration identifiers are preserved. They do not represent a complete rerun with the current public implementation, whose configuration is:
+The final screening run reported in the systematic mapping study processed 1,046 unique records. According to the research configuration reported for that execution, it used:
 
 ```text
-Prompt version: 1.9
+Gemini model: gemini-3.5-flash-lite
+Prompt version: 1.9 (Portuguese)
 Classifier version: 1.11
 ```
 
-The historical results and calibration material are described in:
+These are also the version identifiers of the current screening implementation. Subsequent repository maintenance and code reorganization do not constitute a new research screening run or retroactively change the recorded screening decisions.
+
+The research screening results and calibration material are described in:
 
 ```text
 README.md
@@ -551,4 +552,4 @@ CHANGELOG.md
 
 Records used to develop or tune the classifier constitute development or calibration material. Performance on those records must not be interpreted as independent external validation.
 
-The current configuration must not be assigned retrospectively to historical outputs.
+Earlier development and calibration outputs must retain their own recorded configuration identifiers. The final research configuration must not be assigned retrospectively to all preceding experiments. The safety-rescue codes recorded in the final screening workbooks should be consulted to identify which rescue rules contributed to the reported research results.
